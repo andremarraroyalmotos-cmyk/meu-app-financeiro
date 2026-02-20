@@ -5,39 +5,39 @@ from datetime import date
 
 st.set_page_config(page_title="Gestão Financeira VIP", layout="wide")
 
-# Conectando usando os Secrets que configuramos
+# COLOQUE O LINK DA SUA PLANILHA AQUI (DENTRO DAS ASPAS)
+LINK_DIRETO = "https://docs.google.com/spreadsheets/d/1MYkOnXYCbLvJqhQmToDX1atQhFNDoL1njDlTzEtwLbE/edit"
+
+# Conectando usando os Secrets
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def carregar_dados():
-    # ttl=0 garante que ele não use memória antiga e pegue o dado real
-    return conn.read(ttl=0)
+    # Agora passamos o link diretamente para não ter erro de "Spreadsheet must be specified"
+    return conn.read(spreadsheet=LINK_DIRETO, ttl=0)
 
 df = carregar_dados()
 
-# Menu lateral
+# --- O RESTANTE DO CÓDIGO (MENU E ABAS) SEGUE IGUAL ---
 st.sidebar.title("Menu Pro")
 aba = st.sidebar.radio("Navegar", ["📊 Dashboard", "➕ Novo Lançamento"])
 
 if aba == "📊 Dashboard":
     st.title("Seu Dashboard Profissional")
     if not df.empty:
-        # Garante que os números sejam números
         df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce').fillna(0)
-        
-        # Métricas
         c1, c2, c3 = st.columns(3)
-        c1.metric("Receitas", f"R$ {df[df['Tipo']=='Receita']['Valor'].sum():,.2f}")
-        c2.metric("Despesas", f"R$ {df[df['Tipo'].isin(['Despesa','Cartão'])]['Valor'].sum():,.2f}")
-        c3.metric("Saldo", f"R$ {df[df['Tipo']=='Receita']['Valor'].sum() - df[df['Tipo'].isin(['Despesa','Cartão'])]['Valor'].sum():,.2f}")
-        
+        receitas = df[df['Tipo']=='Receita']['Valor'].sum()
+        despesas = df[df['Tipo'].isin(['Despesa','Cartão'])]['Valor'].sum()
+        c1.metric("Receitas", f"R$ {receitas:,.2f}")
+        c2.metric("Despesas", f"R$ {despesas:,.2f}")
+        c3.metric("Saldo", f"R$ {receitas - despesas:,.2f}")
         st.divider()
         st.dataframe(df, use_container_width=True)
     else:
-        st.info("Planilha vazia. Vá em 'Novo Lançamento'.")
+        st.info("Planilha vazia ou não lida corretamente. Vá em 'Novo Lançamento'.")
 
 elif aba == "➕ Novo Lançamento":
-    st.title("Novo Lançamento Profissional")
-    
+    st.title("Novo Lançamento")
     with st.form("meu_form"):
         col1, col2 = st.columns(2)
         with col1:
@@ -65,8 +65,8 @@ elif aba == "➕ Novo Lançamento":
                     "Parcela": i+1
                 })
             
-            # Atualiza a planilha
             df_atualizado = pd.concat([df, pd.DataFrame(novos_registros)], ignore_index=True)
-            conn.update(data=df_atualizado)
+            # Aqui também passamos o link direto para garantir a gravação
+            conn.update(spreadsheet=LINK_DIRETO, data=df_atualizado)
             st.success("Dados gravados com sucesso!")
             st.rerun()
