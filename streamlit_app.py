@@ -18,9 +18,8 @@ def carregar_dados():
         # Lê a aba específica 'Banco de dados'
         df = conn.read(spreadsheet=LINK_DIRETO, worksheet=NOME_ABA, ttl=0)
         
-        # Limpeza de Dados: Transforma a coluna 'Valor' em número real, mesmo com R$ ou vírgulas
+        # Limpeza de Dados: Transforma a coluna 'Valor' em número real
         if not df.empty and 'Valor' in df.columns:
-            # Converte para string primeiro para evitar erros, depois limpa caracteres não numéricos
             df['Valor'] = df['Valor'].astype(str).str.replace('R$', '', regex=False)
             df['Valor'] = df['Valor'].str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
             df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce').fillna(0)
@@ -44,35 +43,28 @@ if aba == "📊 Dashboard":
     if not df.empty:
         # Cálculos de Totais
         receitas = df[df['Tipo'] == 'Receita']['Valor'].sum()
-        despesas_fixas = df[df['Tipo'] == 'Despesa']['Valor'].sum()
-        cartao = df[df['Tipo'] == 'Cartão']['Valor'].sum()
-        total_gastos = despesas_fixas + cartao
-        saldo = receitas - total_gastos
+        gastos = df[df['Tipo'].isin(['Despesa', 'Cartão'])]['Valor'].sum()
+        saldo = receitas - gastos
         
         # Exibição de Métricas
         c1, c2, c3 = st.columns(3)
         c1.metric("Total Receitas", f"R$ {receitas:,.2f}")
-        c2.metric("Total Gastos (Fixo + Cartão)", f"R$ {total_gastos:,.2f}", delta_color="inverse")
+        c2.metric("Total Gastos", f"R$ {gastos:,.2f}", delta_color="inverse")
         c3.metric("Saldo Atual", f"R$ {saldo:,.2f}")
         
         st.divider()
         
-        # Gráficos e Tabela
         col_esq, col_dir = st.columns([2, 1])
-        
         with col_esq:
             st.subheader("Extrato Detalhado")
-            st.dataframe(df.sort_values(by='Data', ascending=False), use_container_width=True)
-            
+            st.dataframe(df, use_container_width=True)
         with col_dir:
             st.subheader("Gastos por Categoria")
             gastos_cat = df[df['Tipo'] != 'Receita'].groupby('Categoria')['Valor'].sum()
             if not gastos_cat.empty:
                 st.bar_chart(gastos_cat)
-            else:
-                st.write("Sem gastos para exibir gráfico.")
     else:
-        st.warning("Aba 'Banco de dados' vazia ou não encontrada. Faça um lançamento.")
+        st.warning("Nenhum dado encontrado na aba 'Banco de dados'.")
 
 # --- TELA 2: FORMULÁRIO DE LANÇAMENTO ---
 elif aba == "➕ Novo Lançamento":
@@ -82,7 +74,7 @@ elif aba == "➕ Novo Lançamento":
         c1, c2 = st.columns(2)
         with c1:
             data_input = st.date_input("Data", date.today())
-            desc_input = st.text_input("Descrição (Ex: Salário, Aluguel, Supermercado)")
+            desc_input = st.text_input("Descrição")
             valor_input = st.number_input("Valor Total (R$)", min_value=0.0, step=0.01)
         
         with c2:
@@ -94,10 +86,28 @@ elif aba == "➕ Novo Lançamento":
         
         if botao_salvar:
             if desc_input and valor_input > 0:
-                # Lógica de parcelamento
                 novos_itens = []
                 valor_por_parcela = valor_input / parc_input
                 
                 for i in range(int(parc_input)):
                     data_parc = data_input + pd.DateOffset(months=i)
-                    novos_itens.append({
+                    # Criando o dicionário da parcela de forma segura
+                    item = {
+                        "Data": data_parc.strftime('%d/%m/%Y'),
+                        "Descricao": f"{desc_input} ({i+1}/{int(parc_input)})" if parc_input > 1 else desc_input,
+                        "Valor": valor_por_parcela,
+                        "Tipo": tipo_input,
+                        "Categoria": cat_input,
+                        "Parcela": i+1
+                    }
+                    novos_itens.append(item)
+                
+                # Mesclar e salvar
+                df_novo = pd.DataFrame(novos_itens)
+                df_final = pd.concat([df, df_novo], ignore_index=True)
+                
+                conn.update(spreadsheet=LINK_DIRETO, worksheet=NOME_ABA, data=df_final)
+                st.success("Lançamento realizado! Vá ao Dashboard para conferir.")
+                st.balloons()
+            else:
+                st.error("Preencha Descrição e Valor.")
