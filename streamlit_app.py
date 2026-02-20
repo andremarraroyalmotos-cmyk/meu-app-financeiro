@@ -7,7 +7,7 @@ st.set_page_config(page_title="Finanças Sheets Pro", layout="wide")
 
 # --- CONEXÃO COM GOOGLE SHEETS ---
 # No Streamlit Cloud, você configuraria a URL em .streamlit/secrets.toml
-url = "SUA_URL_PUBLICA_DA_PLANILHA_AQUI" 
+url = "https://docs.google.com/spreadsheets/d/1MYkOnXYCbLvJqhQmToDX1atQhFNDoL1njDlTzEtwLbE/edit?gid=0#gid=0" 
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # Função para ler dados
