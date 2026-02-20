@@ -1,78 +1,78 @@
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import date
 
-# LINK DA SUA PLANILHA (JÁ CONVERTIDO)
-URL = "https://docs.google.com/spreadsheets/d/1MYkOnXYCbLvJqhQmToDX1atQhFNDoL1njDlTzEtwLbE/export?format=csv"
-
 st.set_page_config(page_title="Finanças Pro", layout="wide")
 
-# Função para carregar dados
+# --- CONEXÃO COM GOOGLE SHEETS ---
+conn = st.connection("gsheets", type=GSheetsConnection)
+
 def carregar_dados():
-    try:
-        df = pd.read_csv(URL)
-        df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce').fillna(0)
-        df['Data'] = pd.to_datetime(df['Data'], errors='coerce')
-        return df
-    except:
-        return pd.DataFrame(columns=['Data', 'Descricao', 'Valor', 'Tipo', 'Categoria', 'Parcela'])
+    return conn.read(ttl="0") # ttl="0" força o app a ler o dado mais novo sempre
 
 df = carregar_dados()
 
 # --- MENU LATERAL ---
 st.sidebar.title("📌 Menu")
-aba = st.sidebar.radio("Ir para:", ["Dashboard", "Cadastrar Lançamento", "Cartão de Crédito"])
+aba = st.sidebar.radio("Ir para:", ["Dashboard", "Novo Lançamento"])
 
 # --- ABA 1: DASHBOARD ---
 if aba == "Dashboard":
     st.title("📊 Dashboard Financeiro")
     
-    # Métricas
-    receitas = df[df['Tipo'] == 'Receita']['Valor'].sum()
-    despesas = df[df['Tipo'].isin(['Despesa', 'Cartão'])]['Valor'].sum()
-    saldo = receitas - despesas
-    
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Faturamento", f"R$ {receitas:,.2f}")
-    c2.metric("Gastos", f"R$ {despesas:,.2f}", delta_color="inverse")
-    c3.metric("Saldo Líquido", f"R$ {saldo:,.2f}")
-    
-    st.divider()
-    
-    col_graf1, col_graf2 = st.columns(2)
-    with col_graf1:
-        st.subheader("Gastos por Categoria")
-        gastos = df[df['Tipo'] != 'Receita'].groupby('Categoria')['Valor'].sum()
-        st.bar_chart(gastos)
-    
-    with col_graf2:
-        st.subheader("Últimos Registros")
-        st.dataframe(df.sort_values(by='Data', ascending=False), use_container_width=True)
-
-# --- ABA 2: LANÇAMENTOS (INSTRUÇÕES) ---
-elif aba == "Cadastrar Lançamento":
-    st.title("📝 Como Lançar Dados")
-    st.info("Para manter o app 100% gratuito e seguro, os lançamentos são feitos diretamente na sua planilha.")
-    
-    st.markdown(f"""
-    1. Abra sua [Planilha do Google](https://docs.google.com/spreadsheets/d/1MYkOnXYCbLvJqhQmToDX1atQhFNDoL1njDlTzEtwLbE/edit)
-    2. Adicione uma nova linha com os dados.
-    3. Para parcelas, use a coluna **Parcela** (ex: 1, 2, 3).
-    4. Volte aqui e atualize a página.
-    """)
-    
-    if st.button("🔄 Atualizar Dados Agora"):
-        st.cache_data.clear()
-        st.rerun()
-
-# --- ABA 3: CARTÃO DE CRÉDITO ---
-elif aba == "Cartão de Crédito":
-    st.title("💳 Controle de Cartão")
-    df_cartao = df[df['Tipo'] == 'Cartão']
-    
-    if not df_cartao.empty:
-        st.metric("Total de Fatura", f"R$ {df_cartao['Valor'].sum():,.2f}")
-        st.write("Detalhamento de compras:")
-        st.table(df_cartao[['Data', 'Descricao', 'Valor', 'Parcela']])
+    if not df.empty:
+        # Cálculos
+        df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce').fillna(0)
+        receitas = df[df['Tipo'] == 'Receita']['Valor'].sum()
+        despesas = df[df['Tipo'].isin(['Despesa', 'Cartão'])]['Valor'].sum()
+        
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Receitas", f"R$ {receitas:,.2f}")
+        c2.metric("Despesas", f"R$ {despesas:,.2f}")
+        c3.metric("Saldo", f"R$ {receitas - despesas:,.2f}")
+        
+        st.divider()
+        st.subheader("Extrato")
+        st.dataframe(df, use_container_width=True)
     else:
-        st.write("Nenhuma compra no cartão detectada.")
+        st.info("Nenhum dado encontrado. Vá em 'Novo Lançamento'.")
+
+# --- ABA 2: NOVO LANÇAMENTO (O BOTÃO QUE VOCÊ QUERIA!) ---
+elif aba == "Novo Lançamento":
+    st.title("📝 Cadastrar Gasto/Ganho")
+    
+    with st.form(key="form_lancamento"):
+        data = st.date_input("Data", date.today())
+        desc = st.text_input("Descrição (Ex: Aluguel, Supermercado)")
+        valor = st.number_input("Valor (R$)", min_value=0.0, step=0.01)
+        tipo = st.selectbox("Tipo", ["Receita", "Despesa", "Cartão"])
+        cat = st.selectbox("Categoria", ["Salário", "Moradia", "Lazer", "Alimentação", "Outros"])
+        parcelas = st.number_input("Qtd Parcelas (Apenas para Cartão)", min_value=1, value=1)
+        
+        submit = st.form_submit_button("Salvar no Sistema")
+        
+        if submit:
+            if desc == "" or valor == 0:
+                st.error("Por favor, preencha a descrição e o valor!")
+            else:
+                novos_dados = []
+                # Lógica para parcelamento
+                for i in range(int(parcelas)):
+                    nova_data = data + pd.DateOffset(months=i)
+                    novos_dados.append({
+                        "Data": nova_data.strftime('%Y-%m-%d'),
+                        "Descricao": f"{desc} ({i+1}/{int(parcelas)})" if parcelas > 1 else desc,
+                        "Valor": valor / parcelas,
+                        "Tipo": tipo,
+                        "Categoria": cat,
+                        "Parcela": i+1
+                    })
+                
+                # Adicionar ao DataFrame atual e salvar
+                novo_df = pd.DataFrame(novos_dados)
+                df_final = pd.concat([df, novo_df], ignore_index=True)
+                
+                conn.update(data=df_final)
+                st.success("✅ Lançamento realizado com sucesso!")
+                st.balloons()
