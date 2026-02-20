@@ -1,81 +1,55 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
 import pandas as pd
-from datetime import date
 
-st.set_page_config(page_title="Finanças Sheets Pro", layout="wide")
+# CONFIGURAÇÃO DO LINK CONVERTIDO
+URL_CONVERTIDA = "https://docs.google.com/spreadsheets/d/1MYkOnXYCbLvJqhQmToDX1atQhFNDoL1njDlTzEtwLbE/export?format=csv"
 
-# --- CONEXÃO COM GOOGLE SHEETS ---
-# No Streamlit Cloud, você configuraria a URL em .streamlit/secrets.toml
-url = "https://docs.google.com/spreadsheets/d/1MYkOnXYCbLvJqhQmToDX1atQhFNDoL1njDlTzEtwLbE/edit?gid=0#gid=0" 
-conn = st.connection("gsheets", type=GSheetsConnection)
+st.set_page_config(page_title="Meu Dashboard Financeiro", layout="wide")
 
-# Função para ler dados
+st.title("📊 Painel de Controle Financeiro")
+
+# Função para ler os dados
 def carregar_dados():
-    return conn.read(spreadsheet=url, worksheet="Lancamentos")
+    try:
+        # Lendo o Google Sheets como um arquivo CSV
+        dados = pd.read_csv(URL_CONVERTIDA)
+        return dados
+    except Exception as e:
+        st.error(f"Erro ao conectar com a planilha: {e}")
+        return pd.DataFrame()
 
 df = carregar_dados()
 
-# --- INTERFACE ---
-st.title("💰 Gestão Financeira (Google Sheets)")
-
-with st.sidebar:
-    st.header("📝 Novo Registro")
-    tipo = st.selectbox("Tipo", ["Receita", "Despesa", "Cartão de Crédito"])
-    desc = st.text_input("Descrição")
-    valor = st.number_input("Valor (R$)", min_value=0.0, step=0.01)
-    data_base = st.date_input("Data do Lançamento", date.today())
-    cat = st.selectbox("Categoria", ["Salário", "Moradia", "Lazer", "Transporte", "Cartão"])
-    
-    if st.button("Salvar no Google Sheets"):
-        novos_registros = []
-        
-        if tipo == "Cartão de Crédito":
-            parcelas = st.number_input("Parcelas", min_value=1, value=1)
-            for i in range(int(parcelas)):
-                # Lógica de meses para o Google Sheets
-                data_parc = data_base + pd.DateOffset(months=i)
-                novos_registros.append({
-                    "Data": data_parc.strftime('%Y-%m-%d'),
-                    "Descricao": f"{desc} ({i+1}/{int(parcelas)})",
-                    "Valor": valor / parcelas,
-                    "Tipo": "Cartão",
-                    "Categoria": cat,
-                    "Parcela": i+1
-                })
-        else:
-            novos_registros.append({
-                "Data": data_base.strftime('%Y-%m-%d'),
-                "Descricao": desc,
-                "Valor": valor,
-                "Tipo": tipo,
-                "Categoria": cat,
-                "Parcela": 1
-            })
-        
-        # Concatenar e atualizar planilha
-        df_atualizado = pd.concat([df, pd.DataFrame(novos_registros)], ignore_index=True)
-        conn.update(spreadsheet=url, worksheet="Lancamentos", data=df_atualizado)
-        st.success("Sincronizado com sucesso! ✅")
-        st.cache_data.clear() # Limpa o cache para mostrar o dado novo
-
-# --- DASHBOARD ---
 if not df.empty:
-    # Filtro por mês/ano atual para o Dashboard
-    df['Data'] = pd.to_datetime(df['Data'])
-    mes_atual = st.selectbox("Filtrar Mês", df['Data'].dt.strftime('%m-%Y').unique())
+    # Verificando se as colunas existem (baseado no que combinamos antes)
+    colunas_esperadas = ['Data', 'Descricao', 'Valor', 'Tipo', 'Categoria']
     
-    df_filtrado = df[df['Data'].dt.strftime('%m-%Y') == mes_atual]
-    
-    c1, c2, c3 = st.columns(3)
-    rec = df_filtrado[df_filtrado['Tipo'] == 'Receita']['Valor'].astype(float).sum()
-    desp = df_filtrado[df_filtrado['Tipo'].isin(['Despesa', 'Cartão'])]['Valor'].astype(float).sum()
-    
-    c1.metric("Ganhos", f"R$ {rec:,.2f}")
-    c2.metric("Gastos", f"R$ {desp:,.2f}")
-    c3.metric("Sobrou", f"R$ {rec - desp:,.2f}")
-
-    st.subheader(f"Extrato de {mes_atual}")
-    st.table(df_filtrado.sort_values('Data'))
+    # Exibir métricas principais
+    if 'Valor' in df.columns and 'Tipo' in df.columns:
+        # Converter coluna Valor para número (caso haja texto lá)
+        df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce').fillna(0)
+        
+        receitas = df[df['Tipo'] == 'Receita']['Valor'].sum()
+        despesas = df[df['Tipo'].isin(['Despesa', 'Cartão'])]['Valor'].sum()
+        saldo = receitas - despesas
+        
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Total Receitas", f"R$ {receitas:,.2f}")
+        c2.metric("Total Despesas", f"R$ {despesas:,.2f}", delta_color="inverse")
+        c3.metric("Saldo Atual", f"R$ {saldo:,.2f}")
+        
+        st.divider()
+        
+        # Mostrar a tabela de lançamentos
+        st.subheader("📝 Últimos Lançamentos")
+        st.dataframe(df, use_container_width=True)
+        
+        # Gráfico simples de Gastos por Categoria
+        if 'Categoria' in df.columns:
+            st.subheader("📂 Gastos por Categoria")
+            gastos_cat = df[df['Tipo'] != 'Receita'].groupby('Categoria')['Valor'].sum()
+            st.bar_chart(gastos_cat)
+    else:
+        st.warning("A planilha foi encontrada, mas as colunas 'Valor' ou 'Tipo' não foram detectadas. Verifique a primeira linha da sua planilha.")
 else:
-    st.info("Nenhum dado encontrado na planilha.")
+    st.info("A planilha está vazia ou o link não está acessível. Adicione alguns dados na primeira linha da planilha e atualize o app.")
