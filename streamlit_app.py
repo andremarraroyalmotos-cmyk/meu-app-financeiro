@@ -69,7 +69,7 @@ elif aba == "➕ Novo Lançamento":
             valor_in = st.number_input("Valor Total (R$)", min_value=0.0)
         with col2:
             tipo_in = st.selectbox("Tipo", ["Receita", "Despesa", "Cartão"])
-            cat_in = st.selectbox("Categoria", ["Salário", "Moradia", "Lazer", "Alimentação", "Transporte"])
+            cat_in = st.selectbox("Categoria", ["Salário", "Moradia", "Lazer", "Alimentação", "Transporte", "Outros"])
             parc_in = st.number_input("Parcelas", min_value=1, value=1)
             
         if st.form_submit_button("🚀 Confirmar e Salvar"):
