@@ -6,16 +6,16 @@ from datetime import date
 # --- CONFIGURAÇÃO INICIAL ---
 st.set_page_config(page_title="Finanças Pro", layout="wide", page_icon="💰")
 
-# Link da sua planilha
+# Link da sua planilha e nome da aba ajustado (sem espaços)
 LINK_DIRETO = "https://docs.google.com/spreadsheets/d/1MYkOnXYCbLvJqhQmToDX1atQhFNDoL1njDlTzEtwLbE/edit"
-NOME_ABA = "Banco de dados"
+NOME_ABA = "Dados" 
 
 # Conexão com os Secrets do Streamlit
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def carregar_dados():
     try:
-        # Lê a aba específica 'Banco de dados'
+        # Lê a aba específica 'Dados'
         df = conn.read(spreadsheet=LINK_DIRETO, worksheet=NOME_ABA, ttl=0)
         
         # Limpeza de Dados: Transforma a coluna 'Valor' em número real
@@ -60,11 +60,12 @@ if aba == "📊 Dashboard":
             st.dataframe(df, use_container_width=True)
         with col_dir:
             st.subheader("Gastos por Categoria")
-            gastos_cat = df[df['Tipo'] != 'Receita'].groupby('Categoria')['Valor'].sum()
-            if not gastos_cat.empty:
-                st.bar_chart(gastos_cat)
+            if 'Categoria' in df.columns:
+                gastos_cat = df[df['Tipo'] != 'Receita'].groupby('Categoria')['Valor'].sum()
+                if not gastos_cat.empty:
+                    st.bar_chart(gastos_cat)
     else:
-        st.warning("Nenhum dado encontrado na aba 'Banco de dados'.")
+        st.warning(f"Nenhum dado encontrado na aba '{NOME_ABA}'. Verifique se o nome da aba na planilha é exatamente este.")
 
 # --- TELA 2: FORMULÁRIO DE LANÇAMENTO ---
 elif aba == "➕ Novo Lançamento":
@@ -91,7 +92,6 @@ elif aba == "➕ Novo Lançamento":
                 
                 for i in range(int(parc_input)):
                     data_parc = data_input + pd.DateOffset(months=i)
-                    # Criando o dicionário da parcela de forma segura
                     item = {
                         "Data": data_parc.strftime('%d/%m/%Y'),
                         "Descricao": f"{desc_input} ({i+1}/{int(parc_input)})" if parc_input > 1 else desc_input,
@@ -107,7 +107,8 @@ elif aba == "➕ Novo Lançamento":
                 df_final = pd.concat([df, df_novo], ignore_index=True)
                 
                 conn.update(spreadsheet=LINK_DIRETO, worksheet=NOME_ABA, data=df_final)
-                st.success("Lançamento realizado! Vá ao Dashboard para conferir.")
+                st.success("Lançamento realizado com sucesso!")
                 st.balloons()
+                st.rerun()
             else:
                 st.error("Preencha Descrição e Valor.")
