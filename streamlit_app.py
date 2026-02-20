@@ -1,53 +1,72 @@
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
 import pandas as pd
+from datetime import date
 
-# 1. LINK DA LEITURA (O QUE TERMINA EM /export?format=csv)
-URL_LEITURA = "https://docs.google.com/spreadsheets/d/1MYkOnXYCbLvJqhQmToDX1atQhFNDoL1njDlTzEtwLbE/export?format=csv"
+st.set_page_config(page_title="Gestão Financeira VIP", layout="wide")
 
-# 2. LINK DO SEU FORMULÁRIO GOOGLE (COLE AQUI)
-URL_FORMULARIO = "https://docs.google.com/forms/d/e/1FAIpQLScweJ95YyhqupiYTSUxAcbZP0V062mzVxUeWPLnEAjBC_zKdw/viewform?usp=publish-editor"
+# Conectando usando os Secrets que configuramos
+conn = st.connection("gsheets", type=GSheetsConnection)
 
-st.set_page_config(page_title="Finanças Pro", layout="wide")
-
-# Função para ler dados
 def carregar_dados():
-    try:
-        df = pd.read_csv(URL_LEITURA)
-        df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce').fillna(0)
-        return df
-    except:
-        return pd.DataFrame()
+    # ttl=0 garante que ele não use memória antiga e pegue o dado real
+    return conn.read(ttl=0)
 
 df = carregar_dados()
 
-# --- INTERFACE ---
-st.sidebar.title("📌 Menu")
-aba = st.sidebar.radio("Ir para:", ["📊 Dashboard", "➕ Novo Lançamento"])
+# Menu lateral
+st.sidebar.title("Menu Pro")
+aba = st.sidebar.radio("Navegar", ["📊 Dashboard", "➕ Novo Lançamento"])
 
 if aba == "📊 Dashboard":
-    st.title("Painel de Controle")
-    
+    st.title("Seu Dashboard Profissional")
     if not df.empty:
-        # Métricas simples
-        rec = df[df['Tipo'] == 'Receita']['Valor'].sum()
-        desp = df[df['Tipo'].isin(['Despesa', 'Cartão'])]['Valor'].sum()
+        # Garante que os números sejam números
+        df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce').fillna(0)
         
+        # Métricas
         c1, c2, c3 = st.columns(3)
-        c1.metric("Receitas", f"R$ {rec:,.2f}")
-        c2.metric("Despesas", f"R$ {desp:,.2f}")
-        c3.metric("Saldo", f"R$ {rec - desp:,.2f}")
+        c1.metric("Receitas", f"R$ {df[df['Tipo']=='Receita']['Valor'].sum():,.2f}")
+        c2.metric("Despesas", f"R$ {df[df['Tipo'].isin(['Despesa','Cartão'])]['Valor'].sum():,.2f}")
+        c3.metric("Saldo", f"R$ {df[df['Tipo']=='Receita']['Valor'].sum() - df[df['Tipo'].isin(['Despesa','Cartão'])]['Valor'].sum():,.2f}")
         
         st.divider()
-        st.subheader("Histórico")
         st.dataframe(df, use_container_width=True)
     else:
-        st.info("Adicione seu primeiro lançamento para ver os dados!")
+        st.info("Planilha vazia. Vá em 'Novo Lançamento'.")
 
 elif aba == "➕ Novo Lançamento":
-    st.title("Cadastrar Novo Lançamento")
-    st.write("Preencha o formulário abaixo para atualizar sua planilha automaticamente:")
+    st.title("Novo Lançamento Profissional")
     
-    # Exibe o formulário dentro do app
-    st.components.v1.iframe(URL_FORMULARIO, height=800, scrolling=True)
-    
-    st.success("Após clicar em ENVIAR no formulário, basta voltar ao Dashboard para ver o gráfico atualizado!")
+    with st.form("meu_form"):
+        col1, col2 = st.columns(2)
+        with col1:
+            data = st.date_input("Data", date.today())
+            desc = st.text_input("Descrição")
+            valor = st.number_input("Valor", min_value=0.0)
+        with col2:
+            tipo = st.selectbox("Tipo", ["Receita", "Despesa", "Cartão"])
+            cat = st.selectbox("Categoria", ["Alimentação", "Salário", "Lazer", "Contas"])
+            parcelas = st.number_input("Parcelas", min_value=1, value=1)
+            
+        enviar = st.form_submit_button("Confirmar Lançamento")
+        
+        if enviar:
+            novos_registros = []
+            v_parcela = valor / parcelas
+            for i in range(int(parcelas)):
+                d_parc = data + pd.DateOffset(months=i)
+                novos_registros.append({
+                    "Data": d_parc.strftime('%Y-%m-%d'),
+                    "Descricao": f"{desc} ({i+1}/{int(parcelas)})" if parcelas > 1 else desc,
+                    "Valor": v_parcela,
+                    "Tipo": tipo,
+                    "Categoria": cat,
+                    "Parcela": i+1
+                })
+            
+            # Atualiza a planilha
+            df_atualizado = pd.concat([df, pd.DataFrame(novos_registros)], ignore_index=True)
+            conn.update(data=df_atualizado)
+            st.success("Dados gravados com sucesso!")
+            st.rerun()
