@@ -71,7 +71,7 @@ st.markdown(f"""
         background: #f0f0f0 !important;
     }}
 
-    /* Botão Sair e Secundários (Escuros) */
+    /* Botões Secundários (Escuros) */
     .stButton button:not([kind="formSubmit"]) {{
         background-color: rgba(0, 0, 0, 0.3) !important;
         color: white !important;
@@ -106,81 +106,4 @@ if not st.session_state.autenticado:
                 if st.form_submit_button("ACESSAR DASHBOARD"):
                     res = conn.client.table("usuarios").select("*").eq("email", email_in).eq("senha", senha_in).execute()
                     if res.data:
-                        st.session_state.autenticado = True
-                        st.session_state.usuario = res.data[0]['email']
-                        st.session_state.nome_exibicao = res.data[0]['nome']
-                        st.rerun()
-                    else:
-                        st.error("E-mail ou senha inválidos.")
-        
-        with tab_reg:
-            with st.form("reg_form"):
-                st.markdown("### Criar nova conta")
-                n, em, se = st.text_input("Nome"), st.text_input("E-mail"), st.text_input("Senha", type="password")
-                if st.form_submit_button("CADASTRAR"):
-                    try:
-                        conn.client.table("usuarios").insert({"email": em, "senha": se, "nome": n, "ativo": True}).execute()
-                        st.success("Sucesso! Faça o login agora.")
-                    except:
-                        st.error("Erro: Este e-mail já está cadastrado.")
-
-        with tab_rec:
-            with st.form("rec_form"):
-                st.markdown("### Recuperar Senha")
-                email_rec = st.text_input("E-mail cadastrado")
-                if st.form_submit_button("SOLICITAR RESET"):
-                    st.info("Se o e-mail estiver na nossa base, você receberá instruções.")
-
-        with tab_sup:
-            st.markdown("### Suporte")
-            st.markdown("""
-            <div style='background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; text-align: center;'>
-                <p>📧 suporte@moneyflow.com</p>
-                <p>🕒 Seg - Sex: 09:00 - 18:00</p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-    st.stop()
-
-# --- 6. ÁREA LOGADA ---
-
-@st.cache_data(ttl=30)
-def carregar_dados():
-    try:
-        res = conn.client.table("lancamentos").select("*").eq("created_by", st.session_state.usuario).execute()
-        df_p = pd.DataFrame(res.data)
-        if not df_p.empty:
-            df_p['data'] = pd.to_datetime(df_p['data'])
-            df_p['valor'] = pd.to_numeric(df_p['valor'])
-            df_p['Mês'] = df_p['data'].dt.strftime('%b/%y')
-        return df_p
-    except: return pd.DataFrame()
-
-def carregar_opcoes(chave):
-    try:
-        res = conn.client.table("configuracoes").select("valor").eq("created_by", st.session_state.usuario).eq("chave", chave).execute()
-        return [item['valor'] for item in res.data]
-    except: return []
-
-df = carregar_dados()
-tipos_opt = carregar_opcoes("tipo") or ["Receita", "Despesa", "Investimento"]
-cats_opt = carregar_opcoes("categoria") or ["Salário", "Moradia", "Lazer", "Contas"]
-
-# Sidebar
-st.sidebar.markdown(f"### Olá, **{st.session_state.nome_exibicao}**")
-aba = st.sidebar.radio("Navegação", ["📊 Dashboard", "➕ Lançamento", "⚙️ Gerenciar"])
-
-if st.sidebar.button("🚪 Sair do Sistema"):
-    st.session_state.autenticado = False
-    st.session_state.usuario = None
-    st.rerun()
-
-# --- CONTEÚDO DAS ABAS ---
-if aba == "📊 Dashboard":
-    st.markdown("<h1 style='text-align: left;'>📊 Resumo Financeiro</h1>", unsafe_allow_html=True)
-    if not df.empty:
-        r, d = df[df['tipo'] == 'Receita']['valor'].sum(), df[df['tipo'] != 'Receita']['valor'].sum()
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Ganhos", f"R$ {r:,.2f}")
-        c2.metric("Gastos", f"R$ {d:,.2f}")
-        c3.metric("Saldo", f")
+                        st.session_
