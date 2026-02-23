@@ -17,49 +17,46 @@ conn = st.connection("supabase", type=SupabaseConnection,
 # --- 3. INICIALIZAÇÃO DO STATE ---
 if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if 'usuario' not in st.session_state: st.session_state.usuario = None
+if 'nome_exibicao' not in st.session_state: st.session_state.nome_exibicao = "Usuário"
 
-# --- 4. CSS: GLASSMORPHISM + CORREÇÃO DO BOTÃO SAIR ---
+# --- 4. CSS: GLASSMORPHISM + BOTÃO SAIR PROFISSIONAL ---
 st.markdown(f"""
     <style>
     .stApp {{
         background: linear-gradient(135deg, #0093E9 0%, #80D0C7 50%, #931ca1 100%) !important;
         background-attachment: fixed;
     }}
-    
-    /* ESTILO DOS CARDS E FORMS */
-    [data-testid="stForm"], div.stMetric, .stTabs {{
+    header {{visibility: hidden;}}
+
+    /* CARDS E ELEMENTOS COM EFEITO VIDRO */
+    [data-testid="stForm"], div.stMetric, .stTabs, .stDataFrame {{
         background: rgba(255, 255, 255, 0.1) !important;
         backdrop-filter: blur(15px);
         border-radius: 20px !important;
         border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        padding: 25px !important;
+        padding: 20px !important;
     }}
 
-    /* FIX: ESTILO DO BOTÃO SAIR (SIDEBAR) */
-    /* Vamos forçar uma cor escura para ele não sumir no fundo branco/claro */
+    /* CORREÇÃO DO BOTÃO SAIR (AZUL MARINHO) */
     section[data-testid="stSidebar"] .stButton button {{
-        background-color: #1E3A8A !important; /* Azul Marinho */
+        background-color: #1E3A8A !important;
         color: white !important;
+        border-radius: 10px !important;
         border: none !important;
         width: 100% !important;
         font-weight: bold !important;
         height: 45px !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.2) !important;
-    }}
-    
-    section[data-testid="stSidebar"] .stButton button:hover {{
-        background-color: #0F172A !important; /* Tom ainda mais escuro no hover */
-        transform: scale(1.02);
+        margin-top: 20px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.3) !important;
     }}
 
-    /* BOTÕES DOS FORMULÁRIOS (SALVAR) */
-    .stFormSubmitButton button {{
-        background: white !important;
-        color: #0093E9 !important;
-        font-weight: 800 !important;
+    /* TEXTOS EM BRANCO */
+    h1, h2, h3, label, [data-testid="stMetricValue"], [data-testid="stSidebar"] p {{
+        color: white !important;
     }}
 
-    h1, h2, h3, label, [data-testid="stMetricValue"] {{ color: white !important; }}
+    /* INPUTS LIMPÍDOS */
+    input, select, textarea {{ color: #1E3A8A !important; }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -76,12 +73,22 @@ if not st.session_state.autenticado:
                 if st.form_submit_button("ACESSAR DASHBOARD"):
                     res = conn.client.table("usuarios").select("*").eq("email", e_in).eq("senha", s_in).execute()
                     if res.data:
-                        st.session_state.autenticado, st.session_state.usuario = True, res.data[0]['email']
+                        st.session_state.autenticado = True
+                        st.session_state.usuario = res.data[0]['email']
+                        st.session_state.nome_exibicao = res.data[0]['nome']
                         st.rerun()
                     else: st.error("Dados incorretos.")
+        with t_reg:
+            with st.form("reg_form"):
+                n = st.text_input("Nome")
+                em = st.text_input("E-mail")
+                se = st.text_input("Senha", type="password")
+                if st.form_submit_button("CADASTRAR"):
+                    conn.client.table("usuarios").insert({"email": em, "senha": se, "nome": n}).execute()
+                    st.success("Cadastro realizado!")
     st.stop()
 
-# --- 6. CARREGAMENTO DE DADOS ---
+# --- 6. FUNÇÕES DE DADOS ---
 @st.cache_data(ttl=5)
 def carregar_dados():
     try:
@@ -93,52 +100,90 @@ def carregar_dados():
         return df_p
     except: return pd.DataFrame()
 
-df_raw = carregar_dados()
+def carregar_opcoes(chave):
+    try:
+        res = conn.client.table("configuracoes").select("valor").eq("created_by", st.session_state.usuario).eq("chave", chave).execute()
+        return [item['valor'] for item in res.data]
+    except: return []
 
-# --- SIDEBAR ---
-st.sidebar.markdown("### 👤 Menu de Usuário")
+df_raw = carregar_dados()
+tipos_disp = carregar_opcoes("tipo") or ["Receita", "Despesa"]
+cats_disp = carregar_opcoes("categoria") or ["Salário", "Moradia", "Lazer", "Alimentação"]
+
+# Sidebar
+st.sidebar.markdown(f"### Olá, **{st.session_state.nome_exibicao}**")
 aba = st.sidebar.radio("Navegação", ["📊 Dashboard", "➕ Lançamento", "⚙️ Gerenciar"])
 
-# ESPAÇO E BOTÃO SAIR (AGORA VISÍVEL)
-st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
-if st.sidebar.button("🚪 SAIR DO SISTEMA"):
+if st.sidebar.button("🚪 SAIR"):
     st.session_state.autenticado = False
     st.rerun()
 
-# --- CONTEÚDO ---
+# --- ABA 1: DASHBOARD ---
 if aba == "📊 Dashboard":
     st.markdown("<h1>📊 Painel Financeiro</h1>", unsafe_allow_html=True)
     if not df_raw.empty:
-        # Filtro Data padrão BR
-        c_f1, c_f2 = st.columns(2)
-        data_ini = c_f1.date_input("Início", df_raw['data'].min(), format="DD/MM/YYYY")
-        data_fim = c_f2.date_input("Fim", date.today(), format="DD/MM/YYYY")
+        c1, c2 = st.columns(2)
+        d_ini = c1.date_input("Início", df_raw['data'].min(), format="DD/MM/YYYY")
+        d_fim = c2.date_input("Fim", date.today(), format="DD/MM/YYYY")
         
-        df_filt = df_raw[(df_raw['data'] >= data_ini) & (df_raw['data'] <= data_fim)].copy()
+        df_f = df_raw[(df_raw['data'] >= d_ini) & (df_raw['data'] <= d_fim)].copy()
         
         # Métricas
-        r, d = df_filt[df_filt['tipo'] == 'Receita']['valor'].sum(), df_filt[df_filt['tipo'] != 'Receita']['valor'].sum()
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Receitas", f"R$ {r:,.2f}")
-        c2.metric("Despesas", f"R$ {d:,.2f}")
-        c3.metric("Saldo", f"R$ {r-d:,.2f}")
+        rec = df_f[df_f['tipo'] == 'Receita']['valor'].sum()
+        des = df_f[df_f['tipo'] != 'Receita']['valor'].sum()
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Receitas", f"R$ {rec:,.2f}")
+        m2.metric("Despesas", f"R$ {des:,.2f}")
+        m3.metric("Saldo", f"R$ {rec-des:,.2f}")
 
         # Gráficos
         col1, col2 = st.columns(2)
         with col1:
-            fig1 = px.pie(df_filt, values='valor', names='categoria', hole=0.5, title="Distribuição")
-            fig1.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white")
-            st.plotly_chart(fig1, use_container_width=True)
+            st.plotly_chart(px.pie(df_f, values='valor', names='categoria', hole=0.5, title="Gastos"), use_container_width=True)
         with col2:
-            evo = df_filt.groupby('data')['valor'].sum().reset_index()
-            fig2 = px.line(evo, x='data', y='valor', title="Evolução")
-            fig2.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white")
-            st.plotly_chart(fig2, use_container_width=True)
+            st.plotly_chart(px.line(df_f.groupby('data')['valor'].sum().reset_index(), x='data', y='valor', title="Evolução"), use_container_width=True)
         
-        st.markdown("### Histórico Detalhado")
-        df_view = df_filt[['data', 'descricao', 'categoria', 'tipo', 'valor']].sort_values('data', ascending=False)
-        st.dataframe(df_view, use_container_width=True)
+        st.dataframe(df_f[['data', 'descricao', 'categoria', 'tipo', 'valor']].sort_values('data', ascending=False), use_container_width=True)
     else:
-        st.info("Nenhum dado encontrado para o período.")
+        st.info("Lance algo para começar!")
 
-# Aba de Lançamento e Gerenciar permanecem com as lógicas de edição que você já tem...
+# --- ABA 2: LANÇAMENTO ---
+elif aba == "➕ Lançamento":
+    st.markdown("<h1>➕ Novo Registro</h1>", unsafe_allow_html=True)
+    with st.form("add"):
+        c1, c2 = st.columns(2)
+        dt = c1.date_input("Data", date.today(), format="DD/MM/YYYY")
+        ds = c1.text_input("Descrição")
+        vl = c2.number_input("Valor", min_value=0.0)
+        tp = c2.selectbox("Tipo", tipos_disp)
+        ct = st.selectbox("Categoria", cats_disp)
+        if st.form_submit_button("SALVAR"):
+            conn.client.table("lancamentos").insert({"data": str(dt), "descricao": ds, "valor": vl, "tipo": tp, "categoria": ct, "created_by": st.session_state.usuario}).execute()
+            st.cache_data.clear()
+            st.success("Salvo!")
+            st.rerun()
+
+# --- ABA 3: GERENCIAR (EDIÇÃO RESTAURADA) ---
+elif aba == "⚙️ Gerenciar":
+    st.markdown("<h1>⚙️ Gerenciamento</h1>", unsafe_allow_html=True)
+    t1, t2 = st.tabs(["✏️ Editar/Excluir", "🛠️ Opções"])
+    
+    with t1:
+        if not df_raw.empty:
+            df_raw['display'] = df_raw['data'].astype(str) + " - " + df_raw['descricao']
+            item_id = st.selectbox("Item:", df_raw['id'].tolist(), format_func=lambda x: df_raw.loc[df_raw['id']==x, 'display'].values[0])
+            item = df_raw[df_raw['id'] == item_id].iloc[0]
+            
+            with st.form("edit"):
+                c1, c2 = st.columns(2)
+                n_ds = c1.text_input("Descrição", item['descricao'])
+                n_vl = c2.number_input("Valor", value=float(item['valor']))
+                col_a, col_b = st.columns(2)
+                if col_a.form_submit_button("💾 ATUALIZAR"):
+                    conn.client.table("lancamentos").update({"descricao": n_ds, "valor": n_vl}).eq("id", item_id).execute()
+                    st.cache_data.clear()
+                    st.rerun()
+                if col_b.form_submit_button("🗑️ EXCLUIR"):
+                    conn.client.table("lancamentos").delete().eq("id", item_id).execute()
+                    st.cache_data.clear()
+                    st.rerun()
