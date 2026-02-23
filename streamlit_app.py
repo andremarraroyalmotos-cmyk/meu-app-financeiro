@@ -18,6 +18,8 @@ conn = st.connection("supabase", type=SupabaseConnection,
 # --- 3. INICIALIZAÇÃO DE SESSÃO ---
 if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
+if 'usuario' not in st.session_state:
+    st.session_state.usuario = None
 
 # --- 4. LOGO ---
 def get_base64_image(image_path):
@@ -33,7 +35,7 @@ logo_html = f'''
     style="mix-blend-mode: multiply; filter: contrast(120%) brightness(110%);">
 </div>''' if img_b64 else "<h1 style='text-align: center; color: white;'>MONEYFLOW</h1>"
 
-# --- 5. CSS REVISADO (FOCO NA CENTRALIZAÇÃO TOTAL DO BOTÃO) ---
+# --- 5. CSS (FOCO EM CENTRALIZAR BOTÃO E CARD) ---
 st.markdown(f"""
     <style>
     .stApp {{
@@ -53,24 +55,22 @@ st.markdown(f"""
         margin: 0 auto;
     }}
     
-    /* CENTRALIZAÇÃO E LARGURA DO BOTÃO */
+    /* Centralização Real do Botão */
     .stFormSubmitButton {{
-        text-align: center !important;
-        display: flex !important;
-        justify-content: center !important;
+        display: flex;
+        justify-content: center;
+        width: 100%;
     }}
 
     .stFormSubmitButton button {{
         background: linear-gradient(90deg, #12c2e9 0%, #c471ed 50%, #f64f59 100%) !important;
         color: white !important;
         width: 100% !important;
-        min-width: 100% !important;
         padding: 15px 20px !important;
         font-size: 16px !important;
         font-weight: 800 !important;
         border-radius: 12px !important;
         text-transform: uppercase !important;
-        box-shadow: 0 8px 15px rgba(196, 113, 237, 0.4) !important;
         border: none !important;
         margin-top: 10px !important;
     }}
@@ -96,14 +96,20 @@ if not st.session_state.autenticado:
                 btn_login = st.form_submit_button("ACESSAR DASHBOARD")
                 
                 if btn_login:
-                    res = conn.client.table("usuarios").select("*").eq("email", email_input).eq("senha", senha_input).execute()
-                    if res.data:
-                        st.session_state.autenticado = True
-                        st.session_state.usuario = res.data[0]['email']
-                        st.session_state.nome_exibicao = res.data[0]['nome']
-                        st.rerun()
+                    if email_input and senha_input:
+                        res = conn.client.table("usuarios").select("*").eq("email", email_input).eq("senha", senha_input).execute()
+                        if res.data:
+                            # ATUALIZAÇÃO DE ESTADO IMEDIATA
+                            st.session_state.autenticado = True
+                            st.session_state.usuario = res.data[0]['email']
+                            st.session_state.nome_exibicao = res.data[0]['nome']
+                            st.success("Acesso autorizado! Carregando...")
+                            time.sleep(0.5)
+                            st.rerun()
+                        else:
+                            st.error("E-mail ou senha inválidos.")
                     else:
-                        st.error("E-mail ou senha incorretos.")
+                        st.warning("Preencha todos os campos.")
 
         with tab_reg:
             with st.form("reg_form"):
@@ -112,15 +118,15 @@ if not st.session_state.autenticado:
                 if st.form_submit_button("CADASTRAR"):
                     try:
                         conn.client.table("usuarios").insert({"email": em, "senha": se, "nome": n, "ativo": True}).execute()
-                        st.success("Criado! Use a aba Entrar.")
-                    except: st.error("Erro ao cadastrar.")
+                        st.success("Conta criada! Volte para a aba 'Entrar'.")
+                    except: st.error("Erro: E-mail já cadastrado.")
         
         with tab_rec:
             with st.form("rec_form"):
                 st.markdown("<h3>Recuperar Senha</h3>", unsafe_allow_html=True)
                 email_rec = st.text_input("E-mail cadastrado")
                 if st.form_submit_button("ENVIAR LINK"):
-                    st.info("Se cadastrado, um link será enviado.")
+                    st.info("Se o e-mail existir, você receberá um link.")
 
         with tab_sup:
             st.markdown("<h3>Suporte</h3>", unsafe_allow_html=True)
@@ -128,7 +134,9 @@ if not st.session_state.autenticado:
             
     st.stop()
 
-# --- 7. ÁREA LOGADA ---
+# --- 7. ÁREA LOGADA (O QUE APARECE DEPOIS DO LOGIN) ---
+
+# Funções de dados
 @st.cache_data(ttl=30)
 def carregar_dados():
     try:
@@ -146,5 +154,88 @@ def carregar_opcoes(chave):
         return [item['valor'] for item in res.data]
     except: return []
 
+# Layout Logado
+st.sidebar.title(f"👋 Olá, {st.session_state.nome_exibicao}")
+aba = st.sidebar.radio("Menu Principal", ["📊 Dashboard", "➕ Novo Lançamento", "⚙️ Gerenciar"])
+
+if st.sidebar.button("Sair"):
+    st.session_state.autenticado = False
+    st.session_state.usuario = None
+    st.rerun()
+
 df = carregar_dados()
-lista_tipos = carregar_opcoes("tipo") or ["Receita"]
+lista_tipos = carregar_opcoes("tipo") or ["Receita", "Despesa", "Cartão"]
+lista_categorias = carregar_opcoes("categoria") or ["Salário", "Moradia", "Lazer", "Alimentação"]
+
+if aba == "📊 Dashboard":
+    st.title("Seu Painel Financeiro")
+    if not df.empty:
+        r = df[df['tipo'] == 'Receita']['valor'].sum()
+        d = df[df['tipo'] != 'Receita']['valor'].sum()
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Total Receitas", f"R$ {r:,.2f}")
+        c2.metric("Total Despesas", f"R$ {d:,.2f}")
+        c3.metric("Saldo Atual", f"R$ {r-d:,.2f}")
+        st.plotly_chart(px.pie(df, values='valor', names='categoria', hole=0.4, title="Gastos por Categoria"), use_container_width=True)
+    else:
+        st.info("Você ainda não tem lançamentos registrados.")
+
+elif aba == "➕ Novo Lançamento":
+    st.title("Cadastrar Novo Lançamento")
+    with st.form("f_novo", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            d_data = st.date_input("Data", date.today())
+            d_desc = st.text_input("Descrição")
+            d_valor = st.number_input("Valor total", min_value=0.0)
+        with col2:
+            d_tipo = st.selectbox("Tipo", lista_tipos)
+            d_cat = st.selectbox("Categoria", lista_categorias)
+            d_parc = st.number_input("Parcelas (Meses)", min_value=1, value=1)
+        
+        if st.form_submit_button("GRAVAR REGISTRO"):
+            if d_desc and d_valor > 0:
+                itens = []
+                for i in range(int(d_parc)):
+                    dt = d_data + pd.DateOffset(months=i)
+                    itens.append({
+                        "data": dt.strftime('%Y-%m-%d'), 
+                        "descricao": f"{d_desc} ({i+1}/{int(d_parc)})" if d_parc > 1 else d_desc,
+                        "valor": float(d_valor/d_parc), 
+                        "tipo": d_tipo, 
+                        "categoria": d_cat, 
+                        "created_by": st.session_state.usuario
+                    })
+                conn.client.table("lancamentos").insert(itens).execute()
+                st.success("Salvo com sucesso!")
+                st.cache_data.clear()
+                st.rerun()
+
+elif aba == "⚙️ Gerenciar":
+    st.title("Configurações do Sistema")
+    t1, t2 = st.tabs(["📂 Customizar Categorias/Tipos", "🗑️ Excluir Lançamentos"])
+    
+    with t1:
+        st.subheader("Adicionar Opções")
+        c1, c2 = st.columns(2)
+        with c1:
+            nt = st.text_input("Novo Tipo")
+            if st.button("Salvar Tipo") and nt:
+                conn.client.table("configuracoes").insert({"chave": "tipo", "valor": nt, "created_by": st.session_state.usuario}).execute()
+                st.success(f"Tipo '{nt}' adicionado!")
+                st.rerun()
+        with c2:
+            nc = st.text_input("Nova Categoria")
+            if st.button("Salvar Categoria") and nc:
+                conn.client.table("configuracoes").insert({"chave": "categoria", "valor": nc, "created_by": st.session_state.usuario}).execute()
+                st.success(f"Categoria '{nc}' adicionada!")
+                st.rerun()
+
+    with t2:
+        if not df.empty:
+            id_del = st.selectbox("Selecione o registro para apagar:", df['id'].tolist(), format_func=lambda x: f"{df.loc[df['id']==x, 'descricao'].values[0]}")
+            if st.button("DELETAR AGORA"):
+                conn.client.table("lancamentos").delete().eq("id", id_del).execute()
+                st.success("Registro removido.")
+                st.cache_data.clear()
+                st.rerun()
