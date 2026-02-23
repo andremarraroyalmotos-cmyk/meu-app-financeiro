@@ -2,7 +2,7 @@ import streamlit as st
 from st_supabase_connection import SupabaseConnection
 import pandas as pd
 import plotly.express as px
-from datetime import date, timedelta
+from datetime import date
 import time
 import io
 
@@ -18,65 +18,76 @@ conn = st.connection("supabase", type=SupabaseConnection,
 if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if 'usuario' not in st.session_state: st.session_state.usuario = None
 
-# --- 4. CSS REFORMULADO (Foco em Transparência) ---
+# --- 4. CSS ULTRA TRANSPARENTE (CORREÇÃO DE BLOCOS BRANCOS) ---
 st.markdown("""
     <style>
+    /* Fundo Principal */
     .stApp {
         background: linear-gradient(135deg, #0093E9 0%, #80D0C7 50%, #931ca1 100%) !important;
         background-attachment: fixed !important;
     }
-    
-    /* Remove fundos brancos de containers do Streamlit */
-    [data-testid="stHeader"], .stAppHeader { background: rgba(0,0,0,0) !important; }
-    
-    /* Métrica Transparente - Corrigindo o fundo branco */
-    div[data-testid="stMetric"] {
-        background: rgba(255, 255, 255, 0.1) !important;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        padding: 15px !important;
-        border-radius: 15px !important;
-    }
-    
-    /* Ajuste de cores das métricas */
-    [data-testid="stMetricLabel"] p { color: #f0f0f0 !important; font-size: 1rem !important; }
-    [data-testid="stMetricValue"] div { color: white !important; font-weight: bold !important; }
 
-    /* Estilização da Sidebar */
-    [data-testid="stSidebar"] { background-color: rgba(255, 255, 255, 0.1) !important; backdrop-filter: blur(10px); }
-    [data-testid="stSidebar"] * { color: white !important; }
-
-    /* Ajuste do botão de download para ser menor */
-    .stDownloadButton button {
-        width: auto !important;
-        padding: 5px 20px !important;
-        font-size: 14px !important;
-        background-color: rgba(255,255,255,0.2) !important;
+    /* Remove fundos brancos de todos os widgets (Inputs de data, colunas, etc) */
+    div[data-testid="stMetric"], 
+    div[data-testid="stVerticalBlock"],
+    div[data-testid="stForm"],
+    .stDateInput div {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
         color: white !important;
-        border: 1px solid white !important;
+    }
+
+    /* Fix específico para Inputs de Data (remover o fundo branco do campo) */
+    div[data-baseweb="input"] {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        border: none !important;
+    }
+    input { color: white !important; }
+
+    /* Forçar transparência nos containers de colunas */
+    [data-testid="column"] {
+        background-color: transparent !important;
+    }
+
+    /* Ajuste de Texto e Títulos */
+    h1, h2, h3, p, label, [data-testid="stMetricValue"] {
+        color: white !important;
+    }
+
+    /* Sidebar Glass */
+    [data-testid="stSidebar"] {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        backdrop-filter: blur(10px);
     }
     
-    h1, h2, h3 { color: white !important; text-align: left; }
+    /* Botão de Download Pequeno */
+    .stDownloadButton button {
+        background-color: rgba(255, 255, 255, 0.2) !important;
+        color: white !important;
+        border: 1px solid rgba(255, 255, 255, 0.5) !important;
+        border-radius: 8px;
+        padding: 4px 12px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 5. LOGICA DE LOGIN ---
+# --- 5. LÓGICA DE LOGIN ---
 if not st.session_state.autenticado:
-    _, col_central, _ = st.columns([1, 2, 1])
+    _, col_central, _ = st.columns([1, 1.5, 1])
     with col_central:
         st.markdown("<h1 style='text-align: center;'>MONEYFLOW PRO</h1>", unsafe_allow_html=True)
-        with st.form("login"):
+        with st.form("login_box"):
             e = st.text_input("E-mail")
             s = st.text_input("Senha", type="password")
-            if st.form_submit_button("ENTRAR", use_container_width=True):
+            if st.form_submit_button("ACESSAR", use_container_width=True):
                 res = conn.client.table("usuarios").select("*").eq("email", e).eq("senha", s).execute()
                 if res.data:
-                    st.session_state.autenticado = True
-                    st.session_state.usuario = e
+                    st.session_state.autenticado, st.session_state.usuario = True, e
                     st.rerun()
-                else: st.error("Erro no login")
+                else: st.error("Acesso negado")
     st.stop()
 
-# --- 6. DADOS ---
+# --- 6. BUSCA DE DADOS ---
 @st.cache_data(ttl=5)
 def carregar_dados():
     try:
@@ -91,7 +102,7 @@ def carregar_dados():
 df_raw = carregar_dados()
 
 # Sidebar
-aba = st.sidebar.radio("Menu Principal", ["📊 Dashboard", "➕ Novo Lançamento", "⚙️ Gerenciar"])
+aba = st.sidebar.radio("Navegação", ["📊 Dashboard", "➕ Novo", "⚙️ Gerenciar"])
 if st.sidebar.button("Sair"):
     st.session_state.autenticado = False
     st.rerun()
@@ -101,88 +112,84 @@ if aba == "📊 Dashboard":
     st.markdown("<h1>📊 Resumo Financeiro</h1>", unsafe_allow_html=True)
     
     if not df_raw.empty:
-        # --- FILTRO POR DATAS ---
-        with st.container():
-            col_f1, col_f2, col_f3 = st.columns([1, 1, 2])
-            data_ini = col_f1.date_input("De:", date.today().replace(day=1))
-            data_fim = col_f2.date_input("Até:", date.today())
-            
-            # Filtragem do dataframe
-            df = df_raw[(df_raw['data'] >= data_ini) & (df_raw['data'] <= data_fim)].copy()
-
-        st.markdown("---")
+        # --- FILTRO DE DATAS ---
+        c_f1, c_f2, c_f3 = st.columns([1, 1, 1])
+        data_i = c_f1.date_input("Início", date.today().replace(day=1))
+        data_f = c_f2.date_input("Fim", date.today())
         
+        df = df_raw[(df_raw['data'] >= data_i) & (df_raw['data'] <= data_f)].copy()
+
         # --- MÉTRICAS ---
         r = df[df['tipo'] == 'Receita']['valor'].sum()
         d = df[df['tipo'] != 'Receita']['valor'].sum()
         
-        m1, m2, m3, m4 = st.columns([1, 1, 1, 1])
+        st.markdown("<br>", unsafe_allow_html=True)
+        m1, m2, m3, m4 = st.columns(4)
         m1.metric("Receitas", f"R$ {r:,.2f}")
         m2.metric("Despesas", f"R$ {d:,.2f}")
         m3.metric("Saldo", f"R$ {r-d:,.2f}")
         
-        # Botão de download pequeno na quarta coluna
+        # Download formatado
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
             df.to_excel(writer, index=False)
-        m4.markdown("<p style='color:white; font-size:14px; margin-bottom:5px;'>Exportar relatório</p>", unsafe_allow_html=True)
-        m4.download_button("📥 Excel", buffer.getvalue(), "relatorio.xlsx")
+        m4.write("Relatório")
+        m4.download_button("📥 Excel", buffer.getvalue(), "financeiro.xlsx")
 
-        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("---")
 
-        # --- GRÁFICOS ---
+        # --- GRÁFICOS SEM FUNDO BRANCO ---
         g1, g2 = st.columns(2)
         with g1:
             fig_p = px.pie(df, values='valor', names='categoria', hole=0.5, title="Gastos por Categoria")
-            fig_p.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", title_font_color="white")
+            fig_p.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", showlegend=True)
             st.plotly_chart(fig_p, use_container_width=True)
+            
         with g2:
-            # Gráfico de barras por dia
-            df_day = df.groupby('data')['valor'].sum().reset_index()
-            fig_b = px.bar(df_day, x='data', y='valor', title="Movimentação Diária")
-            fig_b.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white", title_font_color="white")
-            fig_b.update_traces(marker_color='#FFFFFF')
+            df_hist = df.groupby('data')['valor'].sum().reset_index()
+            fig_b = px.bar(df_hist, x='data', y='valor', title="Movimentação Diária")
+            # Forçando transparência total no Plotly
+            fig_b.update_layout(
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)', 
+                font_color="white",
+                xaxis=dict(gridcolor='rgba(255,255,255,0.1)'),
+                yaxis=dict(gridcolor='rgba(255,255,255,0.1)')
+            )
+            fig_b.update_traces(marker_color='white')
             st.plotly_chart(fig_b, use_container_width=True)
             
         st.dataframe(df, use_container_width=True)
     else:
-        st.info("Nenhum dado encontrado para o período ou usuário.")
+        st.info("Nenhum registro encontrado para este período.")
 
 # --- 8. NOVO LANÇAMENTO ---
-elif aba == "➕ Novo Lançamento":
-    st.markdown("<h1>➕ Registrar Valor</h1>", unsafe_allow_html=True)
-    with st.form("add"):
+elif aba == "➕ Novo":
+    st.markdown("<h1>➕ Novo Lançamento</h1>", unsafe_allow_html=True)
+    with st.form("add_form"):
         c1, c2 = st.columns(2)
-        dt = c1.date_input("Data", date.today())
-        ds = c1.text_input("Descrição")
-        vl = c2.number_input("Valor (R$)", min_value=0.0)
-        tp = c2.selectbox("Tipo", ["Receita", "Despesa"])
-        cat = st.selectbox("Categoria", ["Salário", "Moradia", "Lazer", "Alimentação", "Outros"])
+        dt_in = c1.date_input("Data", date.today())
+        desc_in = c1.text_input("O que é?")
+        val_in = c2.number_input("Quanto? (R$)", min_value=0.0)
+        tipo_in = c2.selectbox("Tipo", ["Receita", "Despesa"])
+        cat_in = st.selectbox("Categoria", ["Salário", "Moradia", "Lazer", "Alimentação", "Outros"])
         
         if st.form_submit_button("SALVAR REGISTRO", use_container_width=True):
             conn.client.table("lancamentos").insert({
-                "data": str(dt), "descricao": ds, "valor": vl, 
-                "tipo": tp, "categoria": cat, "created_by": st.session_state.usuario
+                "data": str(dt_in), "descricao": desc_in, "valor": val_in, 
+                "tipo": tipo_in, "categoria": cat_in, "created_by": st.session_state.usuario
             }).execute()
             st.cache_data.clear()
-            st.success("Salvo com sucesso!")
+            st.success("Salvo!")
             st.rerun()
 
 # --- 9. GERENCIAR ---
 elif aba == "⚙️ Gerenciar":
-    st.markdown("<h1>⚙️ Gerenciar Lançamentos</h1>", unsafe_allow_html=True)
+    st.markdown("<h1>⚙️ Gerenciar</h1>", unsafe_allow_html=True)
     if not df_raw.empty:
-        # Ordenar por data mais recente
-        df_edit = df_raw.sort_values('data', ascending=False)
-        sel = st.selectbox("Selecione o item que deseja gerenciar:", 
-                           df_edit['id'].tolist(), 
-                           format_func=lambda x: f"{df_raw.loc[df_raw['id']==x, 'data'].values[0]} | {df_raw.loc[df_raw['id']==x, 'descricao'].values[0]} (R$ {df_raw.loc[df_raw['id']==x, 'valor'].values[0]})")
-        
-        c_ed, c_ex = st.columns(2)
-        with c_ex:
-            if st.button("🗑️ EXCLUIR DEFINITIVAMENTE", use_container_width=True):
-                conn.client.table("lancamentos").delete().eq("id", sel).execute()
-                st.cache_data.clear()
-                st.success("Excluído!")
-                time.sleep(1)
-                st.rerun()
+        sel_id = st.selectbox("Selecione para excluir:", df_raw['id'].tolist(), 
+                              format_func=lambda x: f"{df_raw.loc[df_raw['id']==x, 'descricao'].values[0]}")
+        if st.button("🗑️ APAGAR"):
+            conn.client.table("lancamentos").delete().eq("id", sel_id).execute()
+            st.cache_data.clear()
+            st.rerun()
