@@ -16,7 +16,7 @@ conn = st.connection("supabase", type=SupabaseConnection,
 if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
 
-# --- TELAS DE ACESSO (Login/Cadastro permanecem iguais) ---
+# --- TELAS DE ACESSO ---
 if not st.session_state.autenticado:
     aba_login = st.tabs(["🔐 Login", "📝 Criar Conta"])
     with aba_login[0]:
@@ -30,40 +30,45 @@ if not st.session_state.autenticado:
                     st.session_state.usuario = res.data[0]['email']
                     st.session_state.nome_exibicao = res.data[0]['nome']
                     st.rerun()
-                else: st.error("Erro")
+                else: st.error("E-mail ou senha incorretos.")
     with aba_login[1]:
         with st.form("form_cadastro"):
-            n_nome = st.text_input("Nome")
-            n_email = st.text_input("E-mail")
+            n_nome = st.text_input("Nome Completo")
+            n_email = st.text_input("E-mail para login")
             n_senha = st.text_input("Senha", type="password")
-            if st.form_submit_button("Criar"):
-                conn.client.table("usuarios").insert({"email": n_email, "senha": n_senha, "nome": n_nome}).execute()
-                st.success("Criado!")
+            if st.form_submit_button("Criar minha conta"):
+                try:
+                    conn.client.table("usuarios").insert({"email": n_email, "senha": n_senha, "nome": n_nome}).execute()
+                    st.success("Conta criada com sucesso! Faça login.")
+                except: st.error("Erro: Este e-mail já pode estar cadastrado.")
     st.stop()
 
-# --- SISTEMA ---
+# --- CARREGAMENTO DE DADOS ---
 def carregar_dados():
-    res = conn.client.table("lancamentos").select("*").eq("created_by", st.session_state.usuario).execute()
-    df = pd.DataFrame(res.data)
-    if not df.empty:
-        df['data'] = pd.to_datetime(df['data'])
-        # Criamos uma coluna formatada para exibição
-        df['Data Formatada'] = df['data'].dt.strftime('%d/%m/%Y')
-    return df
+    try:
+        res = conn.client.table("lancamentos").select("*").eq("created_by", st.session_state.usuario).execute()
+        df_base = pd.DataFrame(res.data)
+        if not df_base.empty:
+            df_base['data'] = pd.to_datetime(df_base['data'])
+            df_base['valor'] = pd.to_numeric(df_base['valor'])
+            df_base['Data Formatada'] = df_base['data'].dt.strftime('%d/%m/%Y')
+        return df_base
+    except: return pd.DataFrame()
 
 df = carregar_dados()
 
+# --- MENU LATERAL ---
 st.sidebar.title(f"👋 {st.session_state.nome_exibicao}")
 aba = st.sidebar.radio("Menu", ["📊 Dashboard", "➕ Novo Lançamento", "⚙️ Gerenciar"])
-
 if st.sidebar.button("Sair"):
     st.session_state.autenticado = False
     st.rerun()
 
+# --- ABA 1: DASHBOARD ---
 if aba == "📊 Dashboard":
     st.title("Seu Dashboard")
     if not df.empty:
-        st.subheader("🔍 Filtros")
+        st.subheader("🔍 Filtros de Período")
         c_f1, c_f2 = st.columns(2)
         with c_f1:
             data_ini = st.date_input("De:", df['data'].min(), format="DD/MM/YYYY")
@@ -72,24 +77,36 @@ if aba == "📊 Dashboard":
         
         df_filtrado = df[(df['data'].dt.date >= data_ini) & (df['data'].dt.date <= data_fim)].copy()
 
-        # Métricas e Gráficos... (Lógica permanece)
-        rec = df_filtrado[df_filtrado['tipo'] == 'Receita']['valor'].sum()
-        gas = df_filtrado[df_filtrado['tipo'] != 'Receita']['valor'].sum()
+        # Métricas
+        receitas = df_filtrado[df_filtrado['tipo'] == 'Receita']['valor'].sum()
+        despesas = df_filtrado[df_filtrado['tipo'] != 'Receita']['valor'].sum()
+        
         m1, m2, m3 = st.columns(3)
-        m1.metric("Receitas", f"R$ {rec:,.2f}")
-        m2.metric("Despesas", f"R$ {gas:,.2f}")
-        m3.metric("Saldo", f"R$ {rec-gas:,.2f}")
+        m1.metric("Receitas", f"R$ {receitas:,.2f}")
+        m2.metric("Despesas", f"R$ {despesas:,.2f}", delta_color="inverse")
+        m3.metric("Saldo", f"R$ {receitas - despesas:,.2f}")
 
+        # Gráficos (Restaurados)
         st.divider()
-        st.subheader("📋 Histórico (Data padrão Brasil)")
-        # Exibimos o DF com a data formatada
-        st.dataframe(
-            df_filtrado[['Data Formatada', 'descricao', 'valor', 'tipo', 'categoria', 'parcela']]
-            .sort_values('Data Formatada', ascending=False), 
-            use_container_width=True
-        )
-    else: st.info("Sem dados.")
+        g1, g2 = st.columns(2)
+        with g1:
+            st.subheader("Gastos por Categoria")
+            fig_pizza = px.pie(df_filtrado[df_filtrado['tipo'] != 'Receita'], values='valor', names='categoria', hole=0.3)
+            st.plotly_chart(fig_pizza, use_container_width=True)
+            
+        with g2:
+            st.subheader("Evolução Mensal")
+            df_evol = df_filtrado.groupby(df_filtrado['data'].dt.to_period('M'))['valor'].sum().reset_index()
+            df_evol['data'] = df_evol['data'].astype(str)
+            fig_line = px.line(df_evol, x='data', y='valor', markers=True)
+            st.plotly_chart(fig_line, use_container_width=True)
+            
 
+        st.subheader("📋 Detalhamento dos Lançamentos")
+        st.dataframe(df_filtrado[['Data Formatada', 'descricao', 'valor', 'tipo', 'categoria', 'parcela']].sort_values('data', ascending=False), use_container_width=True)
+    else: st.info("Sem dados para exibir.")
+
+# --- ABA 2: NOVO ---
 elif aba == "➕ Novo Lançamento":
     st.title("Registrar")
     with st.form("f_novo", clear_on_submit=True):
@@ -97,14 +114,13 @@ elif aba == "➕ Novo Lançamento":
         with c1:
             d_data = st.date_input("Data", date.today(), format="DD/MM/YYYY")
             d_desc = st.text_input("Descrição")
-            # AJUSTE NO VALOR: format="%.2f" e step=0.01 facilita a entrada
             d_valor = st.number_input("Valor (R$)", min_value=0.0, step=0.01, format="%.2f")
         with c2:
-            d_tipo = st.selectbox("Tipo", ["Receita", "Despesa", "Cartão", "Investimento"])
-            d_cat = st.selectbox("Categoria", ["Salário", "Moradia", "Lazer", "Alimentação", "Saúde", "Outros"])
+            d_tipo = st.selectbox("Tipo", ["Receita", "Despesa", "Cartão", "Investimento", "Outros"])
+            d_cat = st.selectbox("Categoria", ["Salário", "Moradia", "Lazer", "Alimentação", "Saúde", "Educação", "Transporte", "Outros"])
             d_parc = st.number_input("Parcelas", min_value=1, value=1)
         
-        if st.form_submit_button("Salvar Registro"):
+        if st.form_submit_button("🚀 Salvar Registro"):
             if d_desc and d_valor > 0:
                 novos = []
                 for i in range(int(d_parc)):
@@ -116,24 +132,11 @@ elif aba == "➕ Novo Lançamento":
                         "tipo": d_tipo, "categoria": d_cat, "created_by": st.session_state.usuario
                     })
                 conn.client.table("lancamentos").insert(novos).execute()
-                st.success("Gravado!")
+                st.success("Gravado com sucesso!")
                 st.cache_data.clear()
-                time.sleep(0.5)
+                time.sleep(1)
                 st.rerun()
 
+# --- ABA 3: GERENCIAR (Com Botão de Excluir) ---
 elif aba == "⚙️ Gerenciar":
-    st.title("Editar/Excluir")
-    if not df.empty:
-        # Aqui também formatamos a data no seletor para facilitar a leitura
-        df['label'] = df['data'].dt.strftime('%d/%m/%Y') + " - " + df['descricao']
-        escolha = st.selectbox("Selecione o registro:", df['id'].tolist(), format_func=lambda x: df.loc[df['id']==x, 'label'].values[0])
-        
-        # Lógica de Update/Delete permanece...
-        reg = df[df['id'] == escolha].iloc[0]
-        with st.form("f_edit"):
-            new_desc = st.text_input("Descrição", value=reg['descricao'])
-            new_val = st.number_input("Valor", value=float(reg['valor']), step=0.01, format="%.2f")
-            if st.form_submit_button("Atualizar"):
-                conn.client.table("lancamentos").update({"descricao": new_desc, "valor": new_val}).eq("id", escolha).execute()
-                st.cache_data.clear()
-                st.rerun()
+    st.title("Editar ou Excluir
