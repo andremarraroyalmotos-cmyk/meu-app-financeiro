@@ -208,4 +208,48 @@ elif aba == "⚙️ Gerenciar":
             lista_opcoes = df_sorted['id'].tolist()
             selecionado = st.selectbox("Escolha o lançamento para alterar:", 
                                        lista_opcoes, 
-                                       format_func=lambda x: f"{df.
+                                       format_func=lambda x: f"{df.loc[df['id']==x, 'data'].dt.strftime('%d/%m/%y').values[0]} - {df.loc[df['id']==x, 'descricao'].values[0]} (R$ {df.loc[df['id']==x, 'valor'].values[0]})")
+            
+            # Pega os dados atuais do item selecionado
+            item_atual = df[df['id'] == selecionado].iloc[0]
+
+            with st.form("edit_form"):
+                st.markdown("### Alterar Dados")
+                e_col1, e_col2 = st.columns(2)
+                with e_col1:
+                    novo_dt = st.date_input("Nova Data", item_atual['data'])
+                    novo_ds = st.text_input("Nova Descrição", item_atual['descricao'])
+                with e_col2:
+                    novo_vl = st.number_input("Novo Valor", value=float(item_atual['valor']), min_value=0.0)
+                    novo_tp = st.selectbox("Novo Tipo", tipos_disp, index=tipos_disp.index(item_atual['tipo']) if item_atual['tipo'] in tipos_disp else 0)
+                    novo_ct = st.selectbox("Nova Categoria", cats_disp, index=cats_disp.index(item_atual['categoria']) if item_atual['categoria'] in cats_disp else 0)
+                
+                if st.form_submit_button("✅ SALVAR ALTERAÇÕES"):
+                    conn.client.table("lancamentos").update({
+                        "data": novo_dt.strftime('%Y-%m-%d'),
+                        "descricao": novo_ds,
+                        "valor": novo_vl,
+                        "tipo": novo_tp,
+                        "categoria": novo_ct
+                    }).eq("id", selecionado).execute()
+                    st.cache_data.clear()
+                    st.success("Alterado com sucesso!")
+                    time.sleep(1)
+                    st.rerun()
+        else:
+            st.warning("Nenhum dado para editar.")
+
+    with t_excluir:
+        if not df.empty:
+            id_del = st.selectbox("Selecione para apagar:", 
+                                  df['id'].tolist(), 
+                                  key="del_box",
+                                  format_func=lambda x: f"{df.loc[df['id']==x, 'descricao'].values[0]} (R$ {df.loc[df['id']==x, 'valor'].values[0]})")
+            if st.button("🗑️ EXCLUIR DEFINITIVAMENTE"):
+                conn.client.table("lancamentos").delete().eq("id", id_del).execute()
+                st.cache_data.clear()
+                st.success("Removido!")
+                time.sleep(1)
+                st.rerun()
+        else:
+            st.warning("Nada para excluir.")
