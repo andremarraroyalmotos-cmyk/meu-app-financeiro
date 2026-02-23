@@ -4,8 +4,7 @@ import pandas as pd
 import plotly.express as px
 from datetime import date
 import time
-import base64
-import os
+import io
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="MoneyFlow Pro", layout="wide", page_icon="💰")
@@ -23,7 +22,7 @@ if 'usuario' not in st.session_state:
 if 'nome_exibicao' not in st.session_state:
     st.session_state.nome_exibicao = "Usuário"
 
-# --- 4. CSS: GLASSMORPHISM & CENTRALIZAÇÃO ---
+# --- 4. CSS: GLASSMORPHISM & COLUNAS ---
 st.markdown(f"""
     <style>
     .stApp {{
@@ -31,45 +30,25 @@ st.markdown(f"""
         background-attachment: fixed;
     }}
     header {{visibility: hidden;}}
-    [data-testid="stSidebar"] {{
-        background-color: rgba(255, 255, 255, 0.1) !important;
-        backdrop-filter: blur(12px);
+    
+    [data-testid="stMetric"] {{
+        background: rgba(255, 255, 255, 0.1) !important;
+        backdrop-filter: blur(10px);
+        border-radius: 15px;
+        padding: 15px !important;
+        border: 1px solid rgba(255, 255, 255, 0.2);
     }}
-    [data-testid="stForm"], div.stMetric, .stTable, .stDataFrame, .stTabs {{
+
+    [data-testid="stForm"], .stTable, .stDataFrame, .stTabs {{
         background: rgba(255, 255, 255, 0.1) !important;
         backdrop-filter: blur(15px);
         border-radius: 20px !important;
         border: 1px solid rgba(255, 255, 255, 0.2) !important;
         padding: 25px !important;
-        margin-bottom: 20px;
     }}
-    .stFormSubmitButton {{
-        display: flex;
-        justify-content: center;
-        width: 100%;
-    }}
-    .stFormSubmitButton button {{
-        background: white !important;
-        color: #0093E9 !important;
-        width: 100% !important;
-        max-width: 300px;
-        border-radius: 12px !important;
-        font-weight: 800 !important;
-        height: 50px !important;
-        border: none !important;
-    }}
-    .stButton button {{
-        background-color: rgba(0, 0, 0, 0.3) !important;
-        color: white !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        border-radius: 10px !important;
-    }}
+
     h1, h2, h3, label, [data-testid="stMetricValue"], [data-testid="stSidebar"] p {{
         color: white !important;
-        text-align: center;
-    }}
-    .stTabs [data-baseweb="tab-list"] {{
-        justify-content: center !important;
     }}
     </style>
     """, unsafe_allow_html=True)
@@ -78,7 +57,7 @@ st.markdown(f"""
 if not st.session_state.autenticado:
     _, col_central, _ = st.columns([1, 1.8, 1])
     with col_central:
-        st.markdown("<h1 style='font-size: 2.5em;'>MONEYFLOW PRO</h1>", unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align: center;'>MONEYFLOW PRO</h1>", unsafe_allow_html=True)
         t_log, t_reg, t_rec, t_sup = st.tabs(["🔐 Entrar", "📝 Cadastro", "🔑 Senha", "❔ Suporte"])
         with t_log:
             with st.form("login_form"):
@@ -140,25 +119,49 @@ if st.sidebar.button("🚪 Sair"):
 
 # --- CONTEÚDO ---
 if aba == "📊 Dashboard":
-    st.markdown("<h1 style='text-align: left;'>📊 Painel Geral</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: left;'>📊 Painel Financeiro</h1>", unsafe_allow_html=True)
+    
     if not df.empty:
-        r, d = df[df['tipo'] == 'Receita']['valor'].sum(), df[df['tipo'] != 'Receita']['valor'].sum()
-        c1, c2, c3 = st.columns(3)
+        # --- LINHA 1: MÉTRICAS EM COLUNAS ---
+        r = df[df['tipo'] == 'Receita']['valor'].sum()
+        d = df[df['tipo'] != 'Receita']['valor'].sum()
+        
+        c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
         c1.metric("Receitas", f"R$ {r:,.2f}")
         c2.metric("Despesas", f"R$ {d:,.2f}")
-        c3.metric("Saldo", f"R$ {r-d:,.2f}")
-        col1, col2 = st.columns(2)
-        with col1:
+        c3.metric("Saldo Atual", f"R$ {r-d:,.2f}", delta_color="normal")
+        
+        # Botão de Download na quarta coluna
+        buffer = io.BytesIO()
+        with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
+            df.to_excel(writer, index=False, sheet_name='Lançamentos')
+        
+        c4.download_button(
+            label="📥 Baixar Excel",
+            data=buffer.getvalue(),
+            file_name=f"financeiro_{st.session_state.nome_exibicao}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
+        st.markdown("---")
+
+        # --- LINHA 2: GRÁFICOS LADO A LADO ---
+        col_g1, col_g2 = st.columns(2)
+        with col_g1:
             fig1 = px.pie(df, values='valor', names='categoria', hole=0.5, title="Gastos por Categoria")
-            fig1.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white")
+            fig1.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", title_font_color="white")
             st.plotly_chart(fig1, use_container_width=True)
-        with col2:
+        with col_g2:
             evo = df.groupby('Mês')['valor'].sum().reset_index()
             fig2 = px.bar(evo, x='Mês', y='valor', title="Fluxo Mensal", color_discrete_sequence=['#ffffff'])
-            fig2.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white")
+            fig2.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white", title_font_color="white")
             st.plotly_chart(fig2, use_container_width=True)
+            
+        # --- LINHA 3: TABELA DETALHADA ---
+        st.markdown("### 📋 Todos os Lançamentos")
+        st.dataframe(df[['data', 'descricao', 'valor', 'tipo', 'categoria']].sort_values(by='data', ascending=False), use_container_width=True)
     else:
-        st.info("Nenhum dado para exibir.")
+        st.info("Nenhum dado encontrado.")
 
 elif aba == "➕ Lançamento":
     st.markdown("<h1 style='text-align: left;'>➕ Registrar</h1>", unsafe_allow_html=True)
@@ -182,74 +185,5 @@ elif aba == "➕ Lançamento":
                 st.rerun()
 
 elif aba == "⚙️ Gerenciar":
-    st.markdown("<h1 style='text-align: left;'>⚙️ Configurações e Ajustes</h1>", unsafe_allow_html=True)
-    
-    t_personalizar, t_editar, t_excluir = st.tabs(["📂 Personalizar Opções", "✏️ Editar Lançamento", "🗑️ Excluir"])
-
-    with t_personalizar:
-        col_a, col_b = st.columns(2)
-        with col_a:
-            with st.form("new_tipo"):
-                novo_t = st.text_input("Novo Tipo")
-                if st.form_submit_button("Adicionar Tipo"):
-                    conn.client.table("configuracoes").insert({"chave": "tipo", "valor": novo_t, "created_by": st.session_state.usuario}).execute()
-                    st.rerun()
-        with col_b:
-            with st.form("new_cat"):
-                novo_c = st.text_input("Nova Categoria")
-                if st.form_submit_button("Adicionar Categoria"):
-                    conn.client.table("configuracoes").insert({"chave": "categoria", "valor": novo_c, "created_by": st.session_state.usuario}).execute()
-                    st.rerun()
-
-    with t_editar:
-        if not df.empty:
-            # Seleciona o item para editar
-            df_sorted = df.sort_values(by='data', ascending=False)
-            lista_opcoes = df_sorted['id'].tolist()
-            selecionado = st.selectbox("Escolha o lançamento para alterar:", 
-                                       lista_opcoes, 
-                                       format_func=lambda x: f"{df.loc[df['id']==x, 'data'].dt.strftime('%d/%m/%y').values[0]} - {df.loc[df['id']==x, 'descricao'].values[0]} (R$ {df.loc[df['id']==x, 'valor'].values[0]})")
-            
-            # Pega os dados atuais do item selecionado
-            item_atual = df[df['id'] == selecionado].iloc[0]
-
-            with st.form("edit_form"):
-                st.markdown("### Alterar Dados")
-                e_col1, e_col2 = st.columns(2)
-                with e_col1:
-                    novo_dt = st.date_input("Nova Data", item_atual['data'])
-                    novo_ds = st.text_input("Nova Descrição", item_atual['descricao'])
-                with e_col2:
-                    novo_vl = st.number_input("Novo Valor", value=float(item_atual['valor']), min_value=0.0)
-                    novo_tp = st.selectbox("Novo Tipo", tipos_disp, index=tipos_disp.index(item_atual['tipo']) if item_atual['tipo'] in tipos_disp else 0)
-                    novo_ct = st.selectbox("Nova Categoria", cats_disp, index=cats_disp.index(item_atual['categoria']) if item_atual['categoria'] in cats_disp else 0)
-                
-                if st.form_submit_button("✅ SALVAR ALTERAÇÕES"):
-                    conn.client.table("lancamentos").update({
-                        "data": novo_dt.strftime('%Y-%m-%d'),
-                        "descricao": novo_ds,
-                        "valor": novo_vl,
-                        "tipo": novo_tp,
-                        "categoria": novo_ct
-                    }).eq("id", selecionado).execute()
-                    st.cache_data.clear()
-                    st.success("Alterado com sucesso!")
-                    time.sleep(1)
-                    st.rerun()
-        else:
-            st.warning("Nenhum dado para editar.")
-
-    with t_excluir:
-        if not df.empty:
-            id_del = st.selectbox("Selecione para apagar:", 
-                                  df['id'].tolist(), 
-                                  key="del_box",
-                                  format_func=lambda x: f"{df.loc[df['id']==x, 'descricao'].values[0]} (R$ {df.loc[df['id']==x, 'valor'].values[0]})")
-            if st.button("🗑️ EXCLUIR DEFINITIVAMENTE"):
-                conn.client.table("lancamentos").delete().eq("id", id_del).execute()
-                st.cache_data.clear()
-                st.success("Removido!")
-                time.sleep(1)
-                st.rerun()
-        else:
-            st.warning("Nada para excluir.")
+    st.markdown("<h1 style='text-align: left;'>⚙️ Configurações</h1>", unsafe_allow_html=True)
+    t_personalizar, t_editar, t_excluir = st.tabs(["📂 Opções", "✏️ Editar", "
