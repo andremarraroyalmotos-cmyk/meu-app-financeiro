@@ -1,167 +1,114 @@
-import streamlit as st
-from st_supabase_connection import SupabaseConnection
-import pandas as pd
-import plotly.express as px
-from datetime import date, datetime
-import time
+import base64
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="MoneyFlow Pro", layout="wide", page_icon="💰")
+# --- FUNÇÃO PARA CARREGAR IMAGEM LOCAL ---
+def get_base64_image(image_path):
+    with open(image_path, "rb") as img_file:
+        return base64.b64encode(img_file.read()).decode()
 
-# --- CONEXÃO SUPABASE ---
-conn = st.connection("supabase", type=SupabaseConnection, 
-                     url="https://oirdbzrgwmohqcmhlhas.supabase.co", 
-                     key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9pcmRienJnd21vaHFjbWhsaGFzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTg0NjgzOSwiZXhwIjoyMDg3NDIyODM5fQ.zVJh2FzRdMaMfj56mWSxhBmPJKvUKWQE6xUass4-yIM")
+# Tente carregar a logo (certifique-se que o nome do arquivo está correto: logo.png)
+try:
+    img_base64 = get_base64_image("logo.png")
+    logo_html = f'<div style="text-align: center;"><img src="data:image/png;base64,{img_base64}" width="180"></div>'
+except:
+    logo_html = '<h1 style="text-align: center; color: white;">MONEYFLOW</h1>'
 
-# --- INICIALIZAÇÃO DE SESSÃO ---
-if 'autenticado' not in st.session_state:
-    st.session_state.autenticado = False
-
-# --- CSS PARA DESIGN PREMIUM (MONEYFLOW STYLE) ---
-st.markdown("""
+# --- CSS REVISADO (FOCO NO BOTÃO E CENTRALIZAÇÃO) ---
+st.markdown(f"""
     <style>
-    .stApp {
+    .stApp {{
         background: linear-gradient(135deg, #0093E9 0%, #80D0C7 50%, #931ca1 100%);
         background-attachment: fixed;
-    }
-    header {visibility: hidden;}
-    [data-testid="stForm"] {
+    }}
+    header {{visibility: hidden;}}
+    
+    /* Container do Form */
+    [data-testid="stForm"] {{
         background: rgba(255, 255, 255, 0.95) !important;
-        border-radius: 20px !important;
+        border-radius: 25px !important;
         padding: 40px !important;
-        box-shadow: 0 15px 35px rgba(0,0,0,0.2) !important;
-        border: 1px solid rgba(255,255,255,0.3) !important;
-    }
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 20px;
-        justify-content: center;
-    }
-    .stTabs [data-baseweb="tab"] {
-        background-color: transparent !important;
-        color: #666 !important;
-        font-weight: 600;
-    }
-    .stTabs [aria-selected="true"] {
-        color: #0093E9 !important;
-        border-bottom: 3px solid #0093E9 !important;
-    }
-    .stButton>button {
-        width: 100%;
-        background: linear-gradient(to right, #0093E9, #2b5876) !important;
-        color: white !important;
-        font-weight: bold !important;
-        padding: 10px 20px !important;
-        border-radius: 12px !important;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.3) !important;
         border: none !important;
-        transition: 0.3s;
-    }
-    .stButton>button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(0,0,0,0.2);
-    }
-    .logo-text {
-        text-align: center;
-        color: white;
-        font-size: 3rem;
-        font-weight: 800;
-        margin-bottom: 0px;
-    }
+    }}
+
+    /* Títulos e Tabs */
+    .stTabs [data-baseweb="tab-list"] {{ justify-content: center; gap: 30px; }}
+    .stTabs [data-baseweb="tab"] {{ color: #666 !important; font-weight: 700 !important; }}
+    .stTabs [aria-selected="true"] {{ color: #0093E9 !important; border-bottom: 3px solid #0093E9 !important; }}
+
+    /* O BOTÃO (FORÇANDO ESTILO) */
+    div.stButton > button {{
+        width: 100% !important;
+        background: linear-gradient(90deg, #0093E9 0%, #2b5876 100%) !important;
+        color: white !important;
+        height: 55px !important;
+        border-radius: 15px !important;
+        border: none !important;
+        font-size: 18px !important;
+        font-weight: bold !important;
+        margin-top: 20px !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
+        transition: all 0.3s ease !important;
+    }}
+    
+    div.stButton > button:hover {{
+        transform: scale(1.02) !important;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.3) !important;
+    }}
+
+    /* Inputs arredondados */
+    .stTextInput > div > div > input {{
+        border-radius: 12px !important;
+        background-color: #f8f9fa !important;
+    }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- FLUXO DE ACESSO (LOGIN/CADASTRO) ---
+# --- TELA DE ACESSO ---
 if not st.session_state.autenticado:
-    _, col_central, _ = st.columns([1, 1.5, 1])
+    _, col_central, _ = st.columns([1, 1.8, 1]) # Ajustado para ficar proporcional
     
     with col_central:
-        st.markdown("<h1 class='logo-text'>MONEYFLOW</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; color: white; margin-bottom: 30px;'>Smart Finance. Brighter Future.</p>", unsafe_allow_html=True)
+        st.markdown(logo_html, unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; color: white; font-weight: 500; margin-top: 10px; margin-bottom: 25px;'>Smart Finance. Brighter Future.</p>", unsafe_allow_html=True)
         
-        aba_acesso = st.tabs(["🔹 Entrar", "📝 Criar Conta", "❔ Suporte"])
+        tab_login, tab_create, tab_help = st.tabs(["🔹 Entrar", "📝 Criar Conta", "❔ Suporte"])
         
-        with aba_acesso[0]:
-            with st.form("login_moneyflow"):
-                st.markdown("<p style='color: #333; font-weight: bold;'>Bem-vindo de volta</p>", unsafe_allow_html=True)
-                email = st.text_input("E-mail")
-                senha = st.text_input("Senha", type="password")
+        with tab_login:
+            with st.form("form_moneyflow"):
+                st.markdown("<p style='color: #333; font-weight: 600; margin-bottom: -10px;'>Bem-vindo de volta</p>", unsafe_allow_html=True)
+                user_email = st.text_input("E-mail")
+                user_password = st.text_input("Senha", type="password")
                 
-                if st.form_submit_button("ACESSAR DASHBOARD"):
-                    res = conn.client.table("usuarios").select("*").eq("email", email).eq("senha", senha).execute()
+                # O botão agora deve assumir o estilo gradiente
+                submit = st.form_submit_button("ACESSAR DASHBOARD")
+                
+                if submit:
+                    res = conn.client.table("usuarios").select("*").eq("email", user_email).eq("senha", user_password).execute()
                     if res.data:
-                        user = res.data[0]
-                        if user.get('ativo', True):
+                        u = res.data[0]
+                        if u.get('ativo', True):
                             st.session_state.autenticado = True
-                            st.session_state.usuario = user['email']
-                            st.session_state.nome_exibicao = user['nome']
-                            st.session_state.plano = user.get('plano', 'Free')
+                            st.session_state.usuario = u['email']
+                            st.session_state.nome_exibicao = u['nome']
+                            st.session_state.plano = u.get('plano', 'Free')
                             st.rerun()
-                        else: st.error("🚫 Conta suspensa. Contacte o suporte.")
+                        else: st.error("Conta suspensa.")
                     else: st.error("Credenciais inválidas.")
+                
+                st.markdown("<p style='text-align: center; font-size: 13px; color: #888; margin-top: 15px;'>Esqueceu a senha? Contate o Admin.</p>", unsafe_allow_html=True)
 
-        with aba_acesso[1]:
-            with st.form("cadastro_moneyflow"):
-                st.markdown("<p style='color: #333; font-weight: bold;'>Comece sua jornada</p>", unsafe_allow_html=True)
-                n_nome = st.text_input("Nome Completo")
-                n_email = st.text_input("Melhor E-mail")
-                n_senha = st.text_input("Senha", type="password")
-                if st.form_submit_button("CRIAR MINHA CONTA"):
+        with tab_create:
+            with st.form("form_register"):
+                new_n = st.text_input("Nome")
+                new_e = st.text_input("E-mail")
+                new_p = st.text_input("Senha", type="password")
+                if st.form_submit_button("CRIAR CONTA"):
                     try:
-                        conn.client.table("usuarios").insert({"email": n_email, "senha": n_senha, "nome": n_nome, "ativo": True, "plano": "Free"}).execute()
-                        st.success("Conta criada! Faça login na aba ao lado.")
-                    except: st.error("E-mail já registrado no sistema.")
+                        conn.client.table("usuarios").insert({"email": new_e, "senha": new_p, "nome": new_n, "ativo": True, "plano": "Free"}).execute()
+                        st.success("Conta criada! Faça login.")
+                    except: st.error("Erro no cadastro.")
 
-        with aba_acesso[2]:
-            st.info("Esqueceu sua senha? Entre em contato com suporte@moneyflow.com para resetar sua conta.")
+        with tab_help:
+            st.markdown("<div style='background: white; padding: 20px; border-radius: 15px; color: #333;'>Precisa de ajuda? <br><b>suporte@moneyflow.com</b></div>", unsafe_allow_html=True)
+
     st.stop()
-
-# --- CARREGAMENTO DE DADOS (PÓS-LOGIN) ---
-@st.cache_data(ttl=60)
-def carregar_dados():
-    try:
-        res = conn.client.table("lancamentos").select("*").eq("created_by", st.session_state.usuario).execute()
-        df_b = pd.DataFrame(res.data)
-        if not df_b.empty:
-            df_b['data'] = pd.to_datetime(df_b['data'])
-            df_b['valor'] = pd.to_numeric(df_b['valor'])
-            df_b['Data Formatada'] = df_b['data'].dt.strftime('%d/%m/%Y')
-        return df_b
-    except: return pd.DataFrame()
-
-df = carregar_dados()
-
-# --- MENU LATERAL ---
-EMAIL_ADMIN = "admin@seuapp.com" # <--- MUDE PARA O SEU E-MAIL
-menu_opcoes = ["📊 Dashboard", "➕ Novo Lançamento", "⚙️ Gerenciar"]
-if st.session_state.usuario == EMAIL_ADMIN:
-    menu_opcoes.append("👑 ADMINISTRAÇÃO")
-
-st.sidebar.title(f"👋 {st.session_state.nome_exibicao}")
-st.sidebar.caption(f"Plano: {st.session_state.plano}")
-aba = st.sidebar.radio("Menu Principal", menu_opcoes)
-
-if st.sidebar.button("Sair do Sistema"):
-    st.session_state.autenticado = False
-    st.rerun()
-
-# --- ABA 1: DASHBOARD ---
-if aba == "📊 Dashboard":
-    st.title("Painel Financeiro")
-    if not df.empty:
-        c_f1, c_f2 = st.columns(2)
-        with c_f1: data_ini = st.date_input("Início", df['data'].min(), format="DD/MM/YYYY")
-        with c_f2: data_fim = st.date_input("Fim", date.today(), format="DD/MM/YYYY")
-        
-        df_f = df[(df['data'].dt.date >= data_ini) & (df['data'].dt.date <= data_fim)].copy()
-        
-        if not df_f.empty:
-            r = df_f[df_f['tipo'] == 'Receita']['valor'].sum()
-            d = df_f[df_f['tipo'] != 'Receita']['valor'].sum()
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Faturamento", f"R$ {r:,.2f}")
-            m2.metric("Saídas", f"R$ {d:,.2f}", delta_color="inverse")
-            m3.metric("Saldo Líquido", f"R$ {r - d:,.2f}")
-
-            st.divider()
-            g1, g2 = st.columns(2)
-            with g1:
-                st.subheader("Gastos por Categoria")
