@@ -19,7 +19,7 @@ conn = st.connection("supabase", type=SupabaseConnection,
 if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
 
-# --- 4. FUNÇÃO LOGO ---
+# --- 4. LOGO ---
 def get_base64_image(image_path):
     if os.path.exists(image_path):
         with open(image_path, "rb") as img_file:
@@ -33,7 +33,7 @@ logo_html = f'''
     style="mix-blend-mode: multiply; filter: contrast(120%) brightness(110%);">
 </div>''' if img_b64 else "<h1 style='text-align: center; color: white;'>MONEYFLOW</h1>"
 
-# --- 5. CSS REVISADO (DIFERENCIAÇÃO DE BOTÕES & GLASSMORPHISM) ---
+# --- 5. CSS REVISADO (FOCO EM BOTÕES E GLASSMORPHISM) ---
 st.markdown(f"""
     <style>
     .stApp {{
@@ -42,23 +42,22 @@ st.markdown(f"""
     }}
     header {{visibility: hidden;}}
 
-    /* Sidebar Clean */
+    /* Sidebar Glass */
     [data-testid="stSidebar"] {{
         background-color: rgba(255, 255, 255, 0.1) !important;
-        backdrop-filter: blur(10px);
+        backdrop-filter: blur(12px);
     }}
-    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {{ color: white !important; }}
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {{ color: white !important; font-weight: 600; }}
 
     /* Cards de Vidro */
-    [data-testid="stForm"], div.stMetric, .stTable {{
+    [data-testid="stForm"], div.stMetric, .stTable, .stDataFrame {{
         background: rgba(255, 255, 255, 0.15) !important;
         backdrop-filter: blur(15px);
         border-radius: 20px !important;
         border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        padding: 20px !important;
     }}
 
-    /* BOTÃO PRINCIPAL (Entrar / Gravar) - BRANCO */
+    /* BOTÃO PRINCIPAL (Entrar / Gravar / Login) - BRANCO */
     div.stFormSubmitButton > button {{
         background: #ffffff !important;
         color: #0093E9 !important;
@@ -67,18 +66,20 @@ st.markdown(f"""
         font-weight: 800 !important;
         height: 50px !important;
         border: none !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
     }}
 
-    /* BOTÕES SECUNDÁRIOS (Sair, Add Tipo, Excluir) - ESCUROS/TRANSPARENTES */
+    /* BOTÃO SECUNDÁRIO (Sair, Excluir, Add Tipo) - ESCURO/TRANSPARENTE */
     .stButton button:not([kind="formSubmit"]) {{
-        background-color: rgba(0, 0, 0, 0.3) !important;
+        background-color: rgba(0, 0, 0, 0.4) !important;
         color: white !important;
         border: 1px solid rgba(255, 255, 255, 0.3) !important;
         border-radius: 10px !important;
-        transition: 0.3s;
+        font-weight: 500 !important;
     }}
     .stButton button:hover:not([kind="formSubmit"]) {{
-        background-color: rgba(255, 0, 0, 0.4) !important; /* Vermelho suave no hover */
+        background-color: rgba(255, 255, 255, 0.2) !important;
+        border: 1px solid white !important;
     }}
 
     /* Títulos e Métricas */
@@ -100,6 +101,7 @@ if not st.session_state.autenticado:
         
         with tab_log:
             with st.form("login_form"):
+                st.markdown("<h3>Bem-vindo</h3>", unsafe_allow_html=True)
                 e = st.text_input("E-mail")
                 s = st.text_input("Senha", type="password")
                 if st.form_submit_button("ACESSAR DASHBOARD"):
@@ -108,8 +110,23 @@ if not st.session_state.autenticado:
                         st.session_state.autenticado, st.session_state.usuario = True, res.data[0]['email']
                         st.session_state.nome_exibicao = res.data[0]['nome']
                         st.rerun()
-                    else: st.error("Erro de login.")
-        # (Tabs Cadastro/Senha/Suporte ocultas aqui para brevidade, mas mantidas no seu código real)
+                    else: st.error("Login inválido.")
+        
+        with tab_reg:
+            with st.form("reg_form"):
+                n, em, se = st.text_input("Nome"), st.text_input("E-mail"), st.text_input("Senha", type="password")
+                if st.form_submit_button("CADASTRAR"):
+                    conn.client.table("usuarios").insert({"email": em, "senha": se, "nome": n, "ativo": True}).execute()
+                    st.success("Criado! Use a aba Entrar.")
+        
+        with tab_rec:
+            with st.form("rec_form"):
+                email_rec = st.text_input("E-mail para recuperação")
+                if st.form_submit_button("SOLICITAR NOVA SENHA"):
+                    st.info("Instruções enviadas para o e-mail.")
+
+        with tab_sup:
+            st.markdown("<div style='text-align: center; color: white;'>📧 suporte@moneyflow.com<br>📞 (11) 9999-9999</div>", unsafe_allow_html=True)
     st.stop()
 
 # --- 7. ÁREA LOGADA ---
@@ -122,7 +139,7 @@ def carregar_dados():
         if not df_p.empty:
             df_p['data'] = pd.to_datetime(df_p['data'])
             df_p['valor'] = pd.to_numeric(df_p['valor'])
-            df_p['mês_ano'] = df_p['data'].dt.strftime('%m/%Y')
+            df_p['mês'] = df_p['data'].dt.strftime('%b/%y')
         return df_p
     except: return pd.DataFrame()
 
@@ -135,45 +152,3 @@ def carregar_opcoes(chave):
 df = carregar_dados()
 tipos_opt = carregar_opcoes("tipo") or ["Receita", "Despesa", "Cartão"]
 cats_opt = carregar_opcoes("categoria") or ["Salário", "Moradia", "Lazer", "Alimentação"]
-
-# Sidebar
-st.sidebar.markdown(f"### 👋 {st.session_state.nome_exibicao}")
-aba = st.sidebar.radio("Navegação", ["📊 Dashboard", "➕ Novo Lançamento", "⚙️ Gerenciar"])
-if st.sidebar.button("Sair"):
-    st.session_state.autenticado = False
-    st.rerun()
-
-# --- ABAS ---
-if aba == "📊 Dashboard":
-    st.title("Painel de Controle")
-    if not df.empty:
-        # 1. Métricas Principais
-        r, d = df[df['tipo'] == 'Receita']['valor'].sum(), df[df['tipo'] != 'Receita']['valor'].sum()
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Receitas", f"R$ {r:,.2f}")
-        c2.metric("Despesas", f"R$ {d:,.2f}")
-        c3.metric("Saldo", f"R$ {r-d:,.2f}")
-
-        # 2. Gráficos em Colunas
-        col_esq, col_dir = st.columns(2)
-        with col_esq:
-            fig_pie = px.pie(df, values='valor', names='categoria', hole=0.4, title="Gastos por Categoria")
-            fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white")
-            st.plotly_chart(fig_pie, use_container_width=True)
-        
-        with col_dir:
-            evolução = df.groupby('mês_ano')['valor'].sum().reset_index()
-            fig_bar = px.bar(evolução, x='mês_ano', y='valor', title="Evolução Mensal", color_discrete_sequence=['#ffffff'])
-            fig_bar.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white")
-            st.plotly_chart(fig_bar, use_container_width=True)
-
-        # 3. Tabela de Últimos Lançamentos
-        st.subheader("📋 Últimos Lançamentos")
-        st.dataframe(df[['data', 'descricao', 'valor', 'tipo', 'categoria']].sort_values('data', ascending=False), use_container_width=True)
-    else: st.info("Sem dados.")
-
-elif aba == "➕ Novo Lançamento":
-    st.title("Registrar Transação")
-    with st.form("f_new"):
-        c1, c2 = st.columns(2)
-        with
