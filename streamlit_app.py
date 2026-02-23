@@ -21,7 +21,7 @@ if 'autenticado' not in st.session_state:
 if 'usuario' not in st.session_state:
     st.session_state.usuario = None
 
-# --- 4. FUNÇÃO LOGO ---
+# --- 4. LOGO ---
 def get_base64_image(image_path):
     if os.path.exists(image_path):
         with open(image_path, "rb") as img_file:
@@ -35,7 +35,7 @@ logo_html = f'''
     style="mix-blend-mode: multiply; filter: contrast(120%) brightness(110%);">
 </div>''' if img_b64 else "<h1 style='text-align: center; color: white;'>MONEYFLOW</h1>"
 
-# --- 5. CSS REVISADO (BOTÕES DIFERENCIADOS & GLASSMORPHISM) ---
+# --- 5. CSS REVISADO (VISUAL UNIFICADO) ---
 st.markdown(f"""
     <style>
     .stApp {{
@@ -44,13 +44,13 @@ st.markdown(f"""
     }}
     header {{visibility: hidden;}}
 
-    /* Sidebar Transparente */
+    /* Sidebar Glass */
     [data-testid="stSidebar"] {{
         background-color: rgba(255, 255, 255, 0.1) !important;
         backdrop-filter: blur(12px);
     }}
 
-    /* Cards de Vidro */
+    /* Cards e Tabelas */
     [data-testid="stForm"], div.stMetric, .stTable, .stDataFrame {{
         background: rgba(255, 255, 255, 0.15) !important;
         backdrop-filter: blur(15px);
@@ -59,7 +59,7 @@ st.markdown(f"""
         padding: 20px !important;
     }}
 
-    /* BOTÃO DE AÇÃO (Login / Gravar) - BRANCO */
+    /* Botão Principal Branco */
     div.stFormSubmitButton > button {{
         background: white !important;
         color: #0093E9 !important;
@@ -70,17 +70,12 @@ st.markdown(f"""
         border: none !important;
     }}
 
-    /* BOTÕES SECUNDÁRIOS (Sair, Add Categoria) - ESCUROS */
+    /* Botão Secundário Escuro (Sair) */
     .stButton button:not([kind="formSubmit"]) {{
         background-color: rgba(0, 0, 0, 0.4) !important;
         color: white !important;
         border: 1px solid rgba(255, 255, 255, 0.3) !important;
         border-radius: 10px !important;
-    }}
-    
-    .stButton button:hover:not([kind="formSubmit"]) {{
-        background-color: rgba(255, 50, 50, 0.5) !important; /* Vermelho no Sair */
-        color: white !important;
     }}
 
     h1, h2, h3, label, [data-testid="stMetricValue"], [data-testid="stSidebar"] p {{
@@ -89,7 +84,7 @@ st.markdown(f"""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 6. LÓGICA DE ACESSO ---
+# --- 6. LÓGICA DE LOGIN ---
 if not st.session_state.autenticado:
     _, col_central, _ = st.columns([1, 1.8, 1])
     with col_central:
@@ -98,4 +93,15 @@ if not st.session_state.autenticado:
         
         with t_log:
             with st.form("login_form"):
-                e
+                st.markdown("<h3>Acesso Restrito</h3>", unsafe_allow_html=True)
+                email_login = st.text_input("E-mail")
+                senha_login = st.text_input("Senha", type="password")
+                entrar = st.form_submit_button("ACESSAR DASHBOARD")
+                
+                if entrar:
+                    if email_login and senha_login:
+                        res = conn.client.table("usuarios").select("*").eq("email", email_login).eq("senha", senha_login).execute()
+                        if res.data:
+                            st.session_state.autenticado = True
+                            st.session_state.usuario = res.data[0]['email']
+                            st.session_state.nome_
