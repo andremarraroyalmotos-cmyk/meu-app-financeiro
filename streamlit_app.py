@@ -1,55 +1,34 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
+from st_supabase_connection import SupabaseConnection
 import pandas as pd
 from datetime import date
 
-# --- CONFIGURAÇÃO INICIAL ---
-st.set_page_config(page_title="Finanças Pro", layout="wide", page_icon="💰")
+st.set_page_config(page_title="Financeiro Pro | Supabase", layout="wide")
 
-# ID da sua planilha
-SPREADSHEET_ID = "1MYkOnXYCbLvJqhQmToDX1atQhFNDoL1njDlTzEtwLbE"
-NOME_ABA = "Dados"
-
-# Inicializa a conexão
-conn = st.connection("gsheets", type=GSheetsConnection)
+# Conexão com Supabase
+conn = st.connection("supabase", type=SupabaseConnection)
 
 def carregar_dados():
     try:
-        # Forçamos a limpeza do cache para evitar o erro <Response [200]>
-        st.cache_data.clear()
-        
-        # Lendo os dados de forma direta
-        df = conn.read(spreadsheet=SPREADSHEET_ID, worksheet=NOME_ABA, ttl=0)
-        
-        # Se o que voltou não for um DataFrame, criamos um vazio para não travar o app
-        if not isinstance(df, pd.DataFrame):
-             return pd.DataFrame(columns=['Data', 'Descricao', 'Valor', 'Tipo', 'Categoria', 'Parcela'])
-
-        # Limpeza de valores (R$ 5.000 -> 5000)
-        if not df.empty and 'Valor' in df.columns:
-            df['Valor'] = df['Valor'].astype(str).str.replace('R$', '', regex=False)
-            df['Valor'] = df['Valor'].str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
-            df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce').fillna(0)
-            
-        return df
+        # Busca todos os dados da tabela 'lancamentos'
+        res = conn.query("*", table="lancamentos", ttl=0).execute()
+        return pd.DataFrame(res.data)
     except Exception as e:
-        st.error(f"Erro ao processar dados: {e}")
+        st.error(f"Erro ao carregar Supabase: {e}")
         return pd.DataFrame()
 
-# Carregamento
 df = carregar_dados()
 
 # --- INTERFACE ---
-st.sidebar.title("💳 Menu")
-aba = st.sidebar.radio("Ir para:", ["📊 Dashboard", "➕ Novo Lançamento"])
+st.sidebar.title("💰 Financeiro SQL")
+aba = st.sidebar.radio("Navegar:", ["📊 Dashboard", "➕ Novo Lançamento"])
 
 if aba == "📊 Dashboard":
     st.title("Painel de Controle")
-    
     if not df.empty:
-        # Totais
-        rec = df[df['Tipo'] == 'Receita']['Valor'].sum()
-        gas = df[df['Tipo'].isin(['Despesa', 'Cartão'])]['Valor'].sum()
+        # No SQL, o valor já vem como número, sem precisar de limpeza!
+        rec = df[df['tipo'] == 'Receita']['valor'].sum()
+        gas = df[df['tipo'].isin(['Despesa', 'Cartão'])]['valor'].sum()
         
         c1, c2, c3 = st.columns(3)
         c1.metric("Receitas", f"R$ {rec:,.2f}")
@@ -57,13 +36,13 @@ if aba == "📊 Dashboard":
         c3.metric("Saldo", f"R$ {rec - gas:,.2f}")
         
         st.divider()
-        st.dataframe(df, use_container_width=True)
+        st.dataframe(df.sort_values('data', ascending=False), use_container_width=True)
     else:
-        st.info("Aguardando dados... Se a sua planilha tem dados e não aparecem, verifique o nome da aba 'Dados'.")
+        st.info("Nenhum dado encontrado no banco de dados.")
 
 elif aba == "➕ Novo Lançamento":
-    st.title("Cadastrar Transação")
-    with st.form("form_vFinal", clear_on_submit=True):
+    st.title("Cadastrar via Supabase")
+    with st.form("form_supabase", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
             data_in = st.date_input("Data", date.today())
@@ -73,24 +52,23 @@ elif aba == "➕ Novo Lançamento":
             tipo_in = st.selectbox("Tipo", ["Receita", "Despesa", "Cartão"])
             cat_in = st.selectbox("Categoria", ["Salário", "Moradia", "Lazer", "Alimentação", "Transporte"])
             parc_in = st.number_input("Parcelas", min_value=1, value=1)
-            
-        if st.form_submit_button("🚀 Salvar"):
+
+        if st.form_submit_button("🚀 Gravar no Banco SQL"):
             if desc_in and valor_in > 0:
-                # Criar lista de parcelas
                 novos = []
                 v_p = valor_in / parc_in
                 for i in range(int(parc_in)):
-                    dt_p = data_in + pd.DateOffset(months=i)
                     novos.append({
-                        "Data": dt_p.strftime('%d/%m/%Y'),
-                        "Descricao": f"{desc_in} ({i+1}/{int(parc_in)})" if parc_in > 1 else desc_in,
-                        "Valor": v_p,
-                        "Tipo": tipo_in,
-                        "Categoria": cat_in,
-                        "Parcela": i+1
+                        "data": str(data_in + pd.DateOffset(months=i)).split()[0],
+                        "descricao": f"{desc_in} ({i+1}/{int(parc_in)})" if parc_in > 1 else desc_in,
+                        "valor": float(v_p),
+                        "tipo": tipo_in,
+                        "categoria": cat_in,
+                        "parcela": i+1
                     })
                 
-                df_final = pd.concat([df, pd.DataFrame(novos)], ignore_index=True)
-                conn.update(spreadsheet=SPREADSHEET_ID, worksheet=NOME_ABA, data=df_final)
-                st.success("Dados gravados! Reiniciando...")
+                # Gravação direta e rápida
+                conn.table("lancamentos").insert(novos).execute()
+                st.success("Gravado com sucesso no Supabase!")
+                st.balloons()
                 st.rerun()
