@@ -19,7 +19,7 @@ conn = st.connection("supabase", type=SupabaseConnection,
 if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
 
-# --- 4. FUNÇÃO PARA LOGO TRANSPARENTE ---
+# --- 4. LOGO ---
 def get_base64_image(image_path):
     if os.path.exists(image_path):
         with open(image_path, "rb") as img_file:
@@ -33,7 +33,7 @@ logo_html = f'''
     style="mix-blend-mode: multiply; filter: contrast(120%) brightness(110%);">
 </div>''' if img_b64 else "<h1 style='text-align: center; color: white;'>MONEYFLOW</h1>"
 
-# --- 5. CSS PREMIUM (CORREÇÃO DEFINITIVA DO BOTÃO) ---
+# --- 5. CSS REVISADO (CENTRALIZAÇÃO E LARGURA TOTAL) ---
 st.markdown(f"""
     <style>
     .stApp {{
@@ -41,43 +41,37 @@ st.markdown(f"""
         background-attachment: fixed;
     }}
     header {{visibility: hidden;}}
-    h3, .stMarkdown p {{ text-align: center !important; color: #333; font-family: 'sans-serif'; }}
+    h3, .stMarkdown p {{ text-align: center !important; color: #333; }}
     
-    /* Container do Formulário */
     [data-testid="stForm"] {{
         background: rgba(255, 255, 255, 0.98) !important;
         border-radius: 25px !important;
         padding: 30px !important;
         box-shadow: 0 15px 35px rgba(0,0,0,0.2) !important;
         border: none !important;
+        max-width: 450px;
+        margin: 0 auto;
     }}
     
-    /* AQUI ESTÁ O SEGREDO: Forçar o container do botão a ser 100% */
-    div[data-testid="stFormSubmitButton"] {{
-        display: flex;
-        justify-content: center;
+    /* Forçar container do botão a ser centralizado e ocupar 100% */
+    .stFormSubmitButton {{
+        display: flex !important;
+        justify-content: center !important;
         width: 100% !important;
     }}
 
-    div[data-testid="stFormSubmitButton"] > button {{
+    .stFormSubmitButton button {{
         background: linear-gradient(90deg, #12c2e9 0%, #c471ed 50%, #f64f59 100%) !important;
         color: white !important;
-        width: 100% !important; /* Agora ele ocupa 100% do container que também é 100% */
+        width: 100% !important;
         padding: 15px 20px !important;
         font-size: 16px !important;
         font-weight: 800 !important;
         border-radius: 12px !important;
         text-transform: uppercase !important;
         box-shadow: 0 8px 15px rgba(196, 113, 237, 0.4) !important;
-        margin-top: 15px !important;
         border: none !important;
-    }}
-    
-    /* Botões fora do form (Sair, etc) */
-    div.stSidebar [data-testid="stButton"] button {{
-        background-color: #f0f2f6 !important;
-        color: #333 !important;
-        border-radius: 8px !important;
+        margin-top: 10px !important;
     }}
     
     .stTabs [data-baseweb="tab-list"] {{ justify-content: center !important; gap: 20px; }}
@@ -96,21 +90,22 @@ if not st.session_state.autenticado:
         with tab_log:
             with st.form("login_form"):
                 st.markdown("<h3>Bem-vindo</h3>", unsafe_allow_html=True)
-                e = st.text_input("E-mail")
-                s = st.text_input("Senha", type="password")
-                # Botão agora centralizado e ocupando a largura do card
-                st.form_submit_button("ACESSAR DASHBOARD")
-                # Lógica simplificada para o exemplo de layout:
-                if e and s and "dashboard" in st.session_state.get('last_clicked', ''): # Apenas placeholder
-                    pass 
-
-            # Validação real fora do form para evitar bugs de submissão
-            if st.session_state.get('login_form'): # Se o form foi enviado
-                res = conn.client.table("usuarios").select("*").eq("email", e).eq("senha", s).execute()
-                if res.data:
-                    st.session_state.autenticado, st.session_state.usuario = True, res.data[0]['email']
-                    st.session_state.nome_exibicao = res.data[0]['nome']
-                    st.rerun()
+                email_input = st.text_input("E-mail")
+                senha_input = st.text_input("Senha", type="password")
+                btn_login = st.form_submit_button("ACESSAR DASHBOARD")
+                
+                if btn_login:
+                    if email_input and senha_input:
+                        res = conn.client.table("usuarios").select("*").eq("email", email_input).eq("senha", senha_input).execute()
+                        if res.data:
+                            st.session_state.autenticado = True
+                            st.session_state.usuario = res.data[0]['email']
+                            st.session_state.nome_exibicao = res.data[0]['nome']
+                            st.rerun()
+                        else:
+                            st.error("E-mail ou senha incorretos.")
+                    else:
+                        st.warning("Preencha todos os campos.")
 
         with tab_reg:
             with st.form("reg_form"):
@@ -127,7 +122,7 @@ if not st.session_state.autenticado:
                 st.markdown("<h3>Recuperar Senha</h3>", unsafe_allow_html=True)
                 email_rec = st.text_input("E-mail cadastrado")
                 if st.form_submit_button("ENVIAR LINK"):
-                    st.info("Verifique sua caixa de entrada.")
+                    st.info("Se cadastrado, um link será enviado.")
 
         with tab_sup:
             st.markdown("<h3>Suporte</h3>", unsafe_allow_html=True)
@@ -136,12 +131,71 @@ if not st.session_state.autenticado:
     st.stop()
 
 # --- 7. ÁREA LOGADA (RESTAURADA) ---
+@st.cache_data(ttl=30)
+def carregar_dados():
+    try:
+        res = conn.client.table("lancamentos").select("*").eq("created_by", st.session_state.usuario).execute()
+        return pd.DataFrame(res.data)
+    except: return pd.DataFrame()
+
+def carregar_opcoes(tipo_dado):
+    try:
+        res = conn.client.table("configuracoes").select("valor").eq("created_by", st.session_state.usuario).eq("chave", tipo_dado).execute()
+        return [item['valor'] for item in res.data]
+    except: return []
+
+df = carregar_dados()
+lista_tipos = carregar_opcoes("tipo") or ["Receita", "Despesa", "Cartão"]
+lista_categorias = carregar_opcoes("categoria") or ["Salário", "Moradia", "Lazer", "Alimentação"]
+
 st.sidebar.title(f"👋 {st.session_state.nome_exibicao}")
 aba = st.sidebar.radio("Navegação", ["📊 Dashboard", "➕ Novo Lançamento", "⚙️ Gerenciar"])
 if st.sidebar.button("Sair"):
     st.session_state.autenticado = False
     st.rerun()
 
-# (Aqui entra o restante do seu código de Dashboard, Novo Lançamento e Gerenciar que já funciona)
-st.title(aba)
-st.write("Conteúdo da aba carregado com sucesso!")
+# --- CONTEÚDO DAS ABAS ---
+if aba == "📊 Dashboard":
+    st.title("Painel Financeiro")
+    if not df.empty:
+        df['valor'] = pd.to_numeric(df['valor'])
+        r, d = df[df['tipo'] == 'Receita']['valor'].sum(), df[df['tipo'] != 'Receita']['valor'].sum()
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Receitas", f"R$ {r:,.2f}")
+        c2.metric("Despesas", f"R$ {d:,.2f}")
+        c3.metric("Saldo", f"R$ {r-d:,.2f}")
+        st.plotly_chart(px.pie(df, values='valor', names='categoria', hole=0.4), use_container_width=True)
+    else: st.info("Sem lançamentos ainda.")
+
+elif aba == "➕ Novo Lançamento":
+    st.title("Novo Registro")
+    with st.form("f_novo", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        with col1:
+            d_data, d_desc, d_valor = st.date_input("Data", date.today()), st.text_input("Descrição"), st.number_input("Valor", min_value=0.0)
+        with col2:
+            d_tipo = st.selectbox("Tipo", lista_tipos)
+            d_cat = st.selectbox("Categoria", lista_categorias)
+            d_parc = st.number_input("Meses", min_value=1, value=1)
+        if st.form_submit_button("GRAVAR"):
+            itens = [{"data": (d_data + pd.DateOffset(months=i)).strftime('%Y-%m-%d'), "descricao": d_desc, "valor": float(d_valor/d_parc), "tipo": d_tipo, "categoria": d_cat, "created_by": st.session_state.usuario} for i in range(int(d_parc))]
+            conn.client.table("lancamentos").insert(itens).execute()
+            st.success("Gravado!")
+            st.cache_data.clear()
+            st.rerun()
+
+elif aba == "⚙️ Gerenciar":
+    st.title("Gerenciar Sistema")
+    t1, t2 = st.tabs(["📂 Opções Personalizadas", "🗑️ Excluir Dados"])
+    with t1:
+        st.subheader("Add Novos Tipos/Categorias")
+        c1, c2 = st.columns(2)
+        with c1:
+            nt = st.text_input("Novo Tipo")
+            if st.button("Add Tipo") and nt:
+                conn.client.table("configuracoes").insert({"chave": "tipo", "valor": nt, "created_by": st.session_state.usuario}).execute()
+                st.rerun()
+        with c2:
+            nc = st.text_input("Nova Categoria")
+            if st.button("Add Categoria") and nc:
+                conn.client.table("configuracoes").insert({"chave": "categoria", "valor": nc, "created_by
