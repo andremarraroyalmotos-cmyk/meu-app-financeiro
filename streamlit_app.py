@@ -6,19 +6,23 @@ from datetime import date, datetime
 import time
 
 # --- CONFIGURAÇÃO ---
-st.set_page_config(page_title="Minhas Finanças", layout="wide", page_icon="🚀")
+st.set_page_config(page_title="Finanças Pro SaaS", layout="wide", page_icon="🚀")
 
-# Conexão
+# Conexão com Supabase
 conn = st.connection("supabase", type=SupabaseConnection, 
                      url="https://oirdbzrgwmohqcmhlhas.supabase.co", 
                      key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9pcmRienJnd21vaHFjbWhsaGFzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTg0NjgzOSwiZXhwIjoyMDg3NDIyODM5fQ.zVJh2FzRdMaMfj56mWSxhBmPJKvUKWQE6xUass4-yIM")
 
+# --- INICIALIZAÇÃO DA SESSÃO ---
 if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
+if 'usuario' not in st.session_state:
+    st.session_state.usuario = None
 
 # --- TELAS DE ACESSO ---
 if not st.session_state.autenticado:
     aba_login = st.tabs(["🔐 Login", "📝 Criar Conta"])
+    
     with aba_login[0]:
         with st.form("form_login"):
             email_log = st.text_input("E-mail")
@@ -30,7 +34,9 @@ if not st.session_state.autenticado:
                     st.session_state.usuario = res.data[0]['email']
                     st.session_state.nome_exibicao = res.data[0]['nome']
                     st.rerun()
-                else: st.error("E-mail ou senha incorretos.")
+                else:
+                    st.error("E-mail ou senha incorretos.")
+    
     with aba_login[1]:
         with st.form("form_cadastro"):
             n_nome = st.text_input("Nome Completo")
@@ -40,10 +46,12 @@ if not st.session_state.autenticado:
                 try:
                     conn.client.table("usuarios").insert({"email": n_email, "senha": n_senha, "nome": n_nome}).execute()
                     st.success("Conta criada com sucesso! Faça login.")
-                except: st.error("Erro: E-mail já cadastrado.")
+                except:
+                    st.error("Erro: E-mail já cadastrado.")
     st.stop()
 
-# --- CARREGAMENTO DE DADOS ---
+# --- FUNÇÃO DE CARREGAMENTO ---
+@st.cache_data(ttl=60)
 def carregar_dados():
     try:
         res = conn.client.table("lancamentos").select("*").eq("created_by", st.session_state.usuario).execute()
@@ -53,7 +61,8 @@ def carregar_dados():
             df_base['valor'] = pd.to_numeric(df_base['valor'])
             df_base['Data Formatada'] = df_base['data'].dt.strftime('%d/%m/%Y')
         return df_base
-    except: return pd.DataFrame()
+    except:
+        return pd.DataFrame()
 
 df = carregar_dados()
 
@@ -62,6 +71,7 @@ st.sidebar.title(f"👋 {st.session_state.nome_exibicao}")
 aba = st.sidebar.radio("Menu", ["📊 Dashboard", "➕ Novo Lançamento", "⚙️ Gerenciar"])
 if st.sidebar.button("Sair"):
     st.session_state.autenticado = False
+    st.session_state.usuario = None
     st.rerun()
 
 # --- ABA 1: DASHBOARD ---
@@ -101,12 +111,23 @@ if aba == "📊 Dashboard":
                 st.plotly_chart(fig_line, use_container_width=True)
 
             st.subheader("📋 Detalhamento")
-            # CORREÇÃO DO KEYERROR AQUI:
             df_display = df_filtrado.sort_values('data', ascending=False)
-            st.dataframe(df_display[['Data Formatada', 'descricao', 'valor', 'tipo', 'categoria']], use_container_width=True)
+            colunas_view = ['Data Formatada', 'descricao', 'valor', 'tipo', 'categoria']
+            st.dataframe(df_display[colunas_view], use_container_width=True)
+
+            # Botão de Exportação
+            csv = df_display[colunas_view].to_csv(index=False).encode('utf-8-sig')
+            st.download_button(
+                label="📥 Baixar Relatório (Excel/CSV)",
+                data=csv,
+                file_name=f"relatorio_financeiro_{date.today()}.csv",
+                mime="text/csv",
+                use_container_width=True
+            )
         else:
-            st.warning("Nenhum dado encontrado para o período selecionado.")
-    else: st.info("Sem dados para exibir.")
+            st.warning("Nenhum dado no período selecionado.")
+    else:
+        st.info("Sem dados para exibir. Comece cadastrando em 'Novo Lançamento'.")
 
 # --- ABA 2: NOVO ---
 elif aba == "➕ Novo Lançamento":
@@ -132,14 +153,17 @@ elif aba == "➕ Novo Lançamento":
                             "data": dt.strftime('%Y-%m-%d'),
                             "descricao": f"{d_desc} ({i+1}/{int(d_parc)})" if d_parc > 1 else d_desc,
                             "valor": float(d_valor/d_parc),
-                            "tipo": d_tipo, "categoria": d_cat, "created_by": st.session_state.usuario
+                            "tipo": d_tipo, 
+                            "categoria": d_cat, 
+                            "created_by": st.session_state.usuario
                         })
                     conn.client.table("lancamentos").insert(novos).execute()
-                    st.success("Gravado!")
+                    st.success("Gravado com sucesso!")
                     st.cache_data.clear()
                     time.sleep(1)
                     st.rerun()
-                except Exception as e: st.error(f"Erro ao salvar: {e}")
+                except Exception as e:
+                    st.error(f"Erro ao salvar: {e}")
 
 # --- ABA 3: GERENCIAR ---
 elif aba == "⚙️ Gerenciar":
@@ -154,11 +178,18 @@ elif aba == "⚙️ Gerenciar":
             ed_val = st.number_input("Novo Valor", value=float(reg['valor']), step=0.01, format="%.2f")
             
             c_ed1, c_ed2 = st.columns(2)
-            if c_ed1.form_submit_button("💾 Salvar", use_container_width=True):
+            if c_ed1.form_submit_button("💾 Salvar Alterações", use_container_width=True):
                 conn.client.table("lancamentos").update({"descricao": ed_desc, "valor": ed_val}).eq("id", escolha).execute()
+                st.success("Atualizado!")
                 st.cache_data.clear()
+                time.sleep(1)
                 st.rerun()
+                
             if c_ed2.form_submit_button("🗑️ Excluir", use_container_width=True):
                 conn.client.table("lancamentos").delete().eq("id", escolha).execute()
+                st.warning("Excluído!")
                 st.cache_data.clear()
+                time.sleep(1)
                 st.rerun()
+    else:
+        st.info("Nada para gerenciar ainda.")
