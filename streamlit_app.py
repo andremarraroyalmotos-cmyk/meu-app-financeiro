@@ -18,8 +18,10 @@ conn = st.connection("supabase", type=SupabaseConnection,
 # --- 3. INICIALIZAÇÃO DE SESSÃO ---
 if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
+if 'usuario' not in st.session_state:
+    st.session_state.usuario = None
 
-# --- 4. LOGO ---
+# --- 4. FUNÇÃO LOGO ---
 def get_base64_image(image_path):
     if os.path.exists(image_path):
         with open(image_path, "rb") as img_file:
@@ -33,7 +35,7 @@ logo_html = f'''
     style="mix-blend-mode: multiply; filter: contrast(120%) brightness(110%);">
 </div>''' if img_b64 else "<h1 style='text-align: center; color: white;'>MONEYFLOW</h1>"
 
-# --- 5. CSS REVISADO (FOCO EM BOTÕES E GLASSMORPHISM) ---
+# --- 5. CSS REVISADO (BOTÕES DIFERENCIADOS & GLASSMORPHISM) ---
 st.markdown(f"""
     <style>
     .stApp {{
@@ -42,12 +44,11 @@ st.markdown(f"""
     }}
     header {{visibility: hidden;}}
 
-    /* Sidebar Glass */
+    /* Sidebar Transparente */
     [data-testid="stSidebar"] {{
         background-color: rgba(255, 255, 255, 0.1) !important;
         backdrop-filter: blur(12px);
     }}
-    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {{ color: white !important; font-weight: 600; }}
 
     /* Cards de Vidro */
     [data-testid="stForm"], div.stMetric, .stTable, .stDataFrame {{
@@ -55,40 +56,36 @@ st.markdown(f"""
         backdrop-filter: blur(15px);
         border-radius: 20px !important;
         border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        padding: 20px !important;
     }}
 
-    /* BOTÃO PRINCIPAL (Entrar / Gravar / Login) - BRANCO */
+    /* BOTÃO DE AÇÃO (Login / Gravar) - BRANCO */
     div.stFormSubmitButton > button {{
-        background: #ffffff !important;
+        background: white !important;
         color: #0093E9 !important;
         width: 100% !important;
         border-radius: 12px !important;
         font-weight: 800 !important;
         height: 50px !important;
         border: none !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2) !important;
     }}
 
-    /* BOTÃO SECUNDÁRIO (Sair, Excluir, Add Tipo) - ESCURO/TRANSPARENTE */
+    /* BOTÕES SECUNDÁRIOS (Sair, Add Categoria) - ESCUROS */
     .stButton button:not([kind="formSubmit"]) {{
         background-color: rgba(0, 0, 0, 0.4) !important;
         color: white !important;
         border: 1px solid rgba(255, 255, 255, 0.3) !important;
         border-radius: 10px !important;
-        font-weight: 500 !important;
     }}
+    
     .stButton button:hover:not([kind="formSubmit"]) {{
-        background-color: rgba(255, 255, 255, 0.2) !important;
-        border: 1px solid white !important;
-    }}
-
-    /* Títulos e Métricas */
-    h1, h2, h3, label, [data-testid="stMetricValue"] {{
+        background-color: rgba(255, 50, 50, 0.5) !important; /* Vermelho no Sair */
         color: white !important;
     }}
-    [data-testid="stMetricLabel"] {{ color: rgba(255,255,255,0.8) !important; }}
 
-    .stTabs [data-baseweb="tab-list"] {{ justify-content: center !important; gap: 20px; }}
+    h1, h2, h3, label, [data-testid="stMetricValue"], [data-testid="stSidebar"] p {{
+        color: white !important;
+    }}
     </style>
     """, unsafe_allow_html=True)
 
@@ -97,58 +94,8 @@ if not st.session_state.autenticado:
     _, col_central, _ = st.columns([1, 1.8, 1])
     with col_central:
         st.markdown(logo_html, unsafe_allow_html=True)
-        tab_log, tab_reg, tab_rec, tab_sup = st.tabs(["🔐 Entrar", "📝 Cadastro", "🔑 Senha", "❔ Suporte"])
+        t_log, t_reg, t_rec, t_sup = st.tabs(["🔐 Entrar", "📝 Cadastro", "🔑 Senha", "❔ Suporte"])
         
-        with tab_log:
+        with t_log:
             with st.form("login_form"):
-                st.markdown("<h3>Bem-vindo</h3>", unsafe_allow_html=True)
-                e = st.text_input("E-mail")
-                s = st.text_input("Senha", type="password")
-                if st.form_submit_button("ACESSAR DASHBOARD"):
-                    res = conn.client.table("usuarios").select("*").eq("email", e).eq("senha", s).execute()
-                    if res.data:
-                        st.session_state.autenticado, st.session_state.usuario = True, res.data[0]['email']
-                        st.session_state.nome_exibicao = res.data[0]['nome']
-                        st.rerun()
-                    else: st.error("Login inválido.")
-        
-        with tab_reg:
-            with st.form("reg_form"):
-                n, em, se = st.text_input("Nome"), st.text_input("E-mail"), st.text_input("Senha", type="password")
-                if st.form_submit_button("CADASTRAR"):
-                    conn.client.table("usuarios").insert({"email": em, "senha": se, "nome": n, "ativo": True}).execute()
-                    st.success("Criado! Use a aba Entrar.")
-        
-        with tab_rec:
-            with st.form("rec_form"):
-                email_rec = st.text_input("E-mail para recuperação")
-                if st.form_submit_button("SOLICITAR NOVA SENHA"):
-                    st.info("Instruções enviadas para o e-mail.")
-
-        with tab_sup:
-            st.markdown("<div style='text-align: center; color: white;'>📧 suporte@moneyflow.com<br>📞 (11) 9999-9999</div>", unsafe_allow_html=True)
-    st.stop()
-
-# --- 7. ÁREA LOGADA ---
-
-@st.cache_data(ttl=30)
-def carregar_dados():
-    try:
-        res = conn.client.table("lancamentos").select("*").eq("created_by", st.session_state.usuario).execute()
-        df_p = pd.DataFrame(res.data)
-        if not df_p.empty:
-            df_p['data'] = pd.to_datetime(df_p['data'])
-            df_p['valor'] = pd.to_numeric(df_p['valor'])
-            df_p['mês'] = df_p['data'].dt.strftime('%b/%y')
-        return df_p
-    except: return pd.DataFrame()
-
-def carregar_opcoes(chave):
-    try:
-        res = conn.client.table("configuracoes").select("valor").eq("created_by", st.session_state.usuario).eq("chave", chave).execute()
-        return [item['valor'] for item in res.data]
-    except: return []
-
-df = carregar_dados()
-tipos_opt = carregar_opcoes("tipo") or ["Receita", "Despesa", "Cartão"]
-cats_opt = carregar_opcoes("categoria") or ["Salário", "Moradia", "Lazer", "Alimentação"]
+                e
