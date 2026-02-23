@@ -6,100 +6,91 @@ from datetime import date
 # --- CONFIGURAÇÃO INICIAL ---
 st.set_page_config(page_title="Finanças Pro", layout="wide", page_icon="💰")
 
-# ID Único da sua planilha (extraído do seu link)
+# ID da sua planilha
 SPREADSHEET_ID = "1MYkOnXYCbLvJqhQmToDX1atQhFNDoL1njDlTzEtwLbE"
+NOME_ABA = "Dados"
 
-# Nome da aba na sua planilha (precisa ser EXATAMENTE igual)
-NOME_ABA = "Dados" 
-
-# Inicializa a conexão usando os Secrets do Streamlit Cloud
+# Inicializa a conexão
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 def carregar_dados():
     try:
-        # Tenta ler os dados. O parâmetro spreadsheet=ID é o mais estável.
+        # Forçamos a limpeza do cache para evitar o erro <Response [200]>
+        st.cache_data.clear()
+        
+        # Lendo os dados de forma direta
         df = conn.read(spreadsheet=SPREADSHEET_ID, worksheet=NOME_ABA, ttl=0)
         
-        if df is not None and not df.empty:
-            # Limpeza de valores para garantir que cálculos funcionem
+        # Se o que voltou não for um DataFrame, criamos um vazio para não travar o app
+        if not isinstance(df, pd.DataFrame):
+             return pd.DataFrame(columns=['Data', 'Descricao', 'Valor', 'Tipo', 'Categoria', 'Parcela'])
+
+        # Limpeza de valores (R$ 5.000 -> 5000)
+        if not df.empty and 'Valor' in df.columns:
             df['Valor'] = df['Valor'].astype(str).str.replace('R$', '', regex=False)
             df['Valor'] = df['Valor'].str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
             df['Valor'] = pd.to_numeric(df['Valor'], errors='coerce').fillna(0)
-            return df
-        return pd.DataFrame(columns=['Data', 'Descricao', 'Valor', 'Tipo', 'Categoria', 'Parcela'])
+            
+        return df
     except Exception as e:
-        st.error(f"Erro ao carregar dados: {e}")
+        st.error(f"Erro ao processar dados: {e}")
         return pd.DataFrame()
 
-# Carregamento inicial
+# Carregamento
 df = carregar_dados()
 
 # --- INTERFACE ---
-st.sidebar.title("💳 Menu Principal")
-aba = st.sidebar.radio("Navegar para:", ["📊 Dashboard", "➕ Novo Lançamento"])
+st.sidebar.title("💳 Menu")
+aba = st.sidebar.radio("Ir para:", ["📊 Dashboard", "➕ Novo Lançamento"])
 
 if aba == "📊 Dashboard":
     st.title("Painel de Controle")
     
     if not df.empty:
-        # Cálculos de Totais
-        receitas = df[df['Tipo'] == 'Receita']['Valor'].sum()
-        gastos = df[df['Tipo'].isin(['Despesa', 'Cartão'])]['Valor'].sum()
-        saldo = receitas - gastos
+        # Totais
+        rec = df[df['Tipo'] == 'Receita']['Valor'].sum()
+        gas = df[df['Tipo'].isin(['Despesa', 'Cartão'])]['Valor'].sum()
         
         c1, c2, c3 = st.columns(3)
-        c1.metric("Total Receitas", f"R$ {receitas:,.2f}")
-        c2.metric("Total Gastos", f"R$ {gastos:,.2f}", delta_color="inverse")
-        c3.metric("Saldo Atual", f"R$ {saldo:,.2f}")
+        c1.metric("Receitas", f"R$ {rec:,.2f}")
+        c2.metric("Gastos", f"R$ {gas:,.2f}", delta_color="inverse")
+        c3.metric("Saldo", f"R$ {rec - gas:,.2f}")
         
         st.divider()
-        st.subheader("📋 Histórico")
         st.dataframe(df, use_container_width=True)
     else:
-        st.warning("Nenhum dado encontrado para exibir no Dashboard.")
+        st.info("Aguardando dados... Se a sua planilha tem dados e não aparecem, verifique o nome da aba 'Dados'.")
 
 elif aba == "➕ Novo Lançamento":
     st.title("Cadastrar Transação")
-    
-    with st.form("form_financeiro", clear_on_submit=True):
+    with st.form("form_vFinal", clear_on_submit=True):
         col1, col2 = st.columns(2)
         with col1:
-            data_input = st.date_input("Data", date.today())
-            desc_input = st.text_input("Descrição")
-            valor_input = st.number_input("Valor Total (R$)", min_value=0.0, step=0.01)
+            data_in = st.date_input("Data", date.today())
+            desc_in = st.text_input("Descrição")
+            valor_in = st.number_input("Valor (R$)", min_value=0.0)
         with col2:
-            tipo_input = st.selectbox("Tipo", ["Receita", "Despesa", "Cartão"])
-            cat_input = st.selectbox("Categoria", ["Salário", "Moradia", "Lazer", "Alimentação", "Transporte", "Saúde"])
-            parc_input = st.number_input("Parcelas", min_value=1, value=1)
+            tipo_in = st.selectbox("Tipo", ["Receita", "Despesa", "Cartão"])
+            cat_in = st.selectbox("Categoria", ["Salário", "Moradia", "Lazer", "Alimentação", "Transporte"])
+            parc_in = st.number_input("Parcelas", min_value=1, value=1)
             
-        if st.form_submit_button("🚀 Salvar na Planilha"):
-            if desc_input and valor_input > 0:
-                # Lógica de Parcelamento
-                novos_itens = []
-                valor_parc = valor_input / parc_input
-                for i in range(int(parc_input)):
-                    dt = data_input + pd.DateOffset(months=i)
-                    novos_itens.append({
-                        "Data": dt.strftime('%d/%m/%Y'),
-                        "Descricao": f"{desc_input} ({i+1}/{int(parc_input)})" if parc_input > 1 else desc_input,
-                        "Valor": valor_parc,
-                        "Tipo": tipo_input,
-                        "Categoria": cat_input,
+        if st.form_submit_button("🚀 Salvar"):
+            if desc_in and valor_in > 0:
+                # Criar lista de parcelas
+                novos = []
+                v_p = valor_in / parc_in
+                for i in range(int(parc_in)):
+                    dt_p = data_in + pd.DateOffset(months=i)
+                    novos.append({
+                        "Data": dt_p.strftime('%d/%m/%Y'),
+                        "Descricao": f"{desc_in} ({i+1}/{int(parc_in)})" if parc_in > 1 else desc_in,
+                        "Valor": v_p,
+                        "Tipo": tipo_in,
+                        "Categoria": cat_in,
                         "Parcela": i+1
                     })
                 
-                # Mescla com dados antigos
-                df_final = pd.concat([df, pd.DataFrame(novos_itens)], ignore_index=True)
-                
-                # TENTA GRAVAR
-                try:
-                    conn.update(spreadsheet=SPREADSHEET_ID, worksheet=NOME_ABA, data=df_final)
-                    st.success("✅ Lançamento gravado com sucesso!")
-                    st.balloons()
-                    # Força a limpeza do cache para o Dashboard ler o novo dado
-                    st.cache_data.clear()
-                except Exception as e:
-                    st.error(f"❌ Erro ao gravar: {e}")
-                    st.info("Verifique se o e-mail da conta de serviço é EDITOR na sua planilha.")
-            else:
-                st.error("Preencha Descrição e Valor.")
+                df_final = pd.concat([df, pd.DataFrame(novos)], ignore_index=True)
+                conn.update(spreadsheet=SPREADSHEET_ID, worksheet=NOME_ABA, data=df_final)
+                st.success("Dados gravados! Reiniciando...")
+                st.rerun()
