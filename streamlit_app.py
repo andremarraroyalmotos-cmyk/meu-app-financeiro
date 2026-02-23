@@ -147,4 +147,4 @@ def carregar_opcoes(chave):
     except: return []
 
 df = carregar_dados()
-lista_tipos = carregar_opcoes("tipo") or ["Receita
+lista_tipos = carregar_opcoes("tipo") or ["Receita"]
