@@ -33,7 +33,7 @@ logo_html = f'''
     style="mix-blend-mode: multiply; filter: contrast(120%) brightness(110%);">
 </div>''' if img_b64 else "<h1 style='text-align: center; color: white;'>MONEYFLOW</h1>"
 
-# --- 5. CSS REVISADO (CENTRALIZAÇÃO E LARGURA TOTAL) ---
+# --- 5. CSS REVISADO (FOCO NA CENTRALIZAÇÃO TOTAL DO BOTÃO) ---
 st.markdown(f"""
     <style>
     .stApp {{
@@ -53,17 +53,18 @@ st.markdown(f"""
         margin: 0 auto;
     }}
     
-    /* Forçar container do botão a ser centralizado e ocupar 100% */
+    /* CENTRALIZAÇÃO E LARGURA DO BOTÃO */
     .stFormSubmitButton {{
+        text-align: center !important;
         display: flex !important;
         justify-content: center !important;
-        width: 100% !important;
     }}
 
     .stFormSubmitButton button {{
         background: linear-gradient(90deg, #12c2e9 0%, #c471ed 50%, #f64f59 100%) !important;
         color: white !important;
         width: 100% !important;
+        min-width: 100% !important;
         padding: 15px 20px !important;
         font-size: 16px !important;
         font-weight: 800 !important;
@@ -95,17 +96,14 @@ if not st.session_state.autenticado:
                 btn_login = st.form_submit_button("ACESSAR DASHBOARD")
                 
                 if btn_login:
-                    if email_input and senha_input:
-                        res = conn.client.table("usuarios").select("*").eq("email", email_input).eq("senha", senha_input).execute()
-                        if res.data:
-                            st.session_state.autenticado = True
-                            st.session_state.usuario = res.data[0]['email']
-                            st.session_state.nome_exibicao = res.data[0]['nome']
-                            st.rerun()
-                        else:
-                            st.error("E-mail ou senha incorretos.")
+                    res = conn.client.table("usuarios").select("*").eq("email", email_input).eq("senha", senha_input).execute()
+                    if res.data:
+                        st.session_state.autenticado = True
+                        st.session_state.usuario = res.data[0]['email']
+                        st.session_state.nome_exibicao = res.data[0]['nome']
+                        st.rerun()
                     else:
-                        st.warning("Preencha todos os campos.")
+                        st.error("E-mail ou senha incorretos.")
 
         with tab_reg:
             with st.form("reg_form"):
@@ -130,72 +128,23 @@ if not st.session_state.autenticado:
             
     st.stop()
 
-# --- 7. ÁREA LOGADA (RESTAURADA) ---
+# --- 7. ÁREA LOGADA ---
 @st.cache_data(ttl=30)
 def carregar_dados():
     try:
         res = conn.client.table("lancamentos").select("*").eq("created_by", st.session_state.usuario).execute()
-        return pd.DataFrame(res.data)
+        df_res = pd.DataFrame(res.data)
+        if not df_res.empty:
+            df_res['data'] = pd.to_datetime(df_res['data'])
+            df_res['valor'] = pd.to_numeric(df_res['valor'])
+        return df_res
     except: return pd.DataFrame()
 
-def carregar_opcoes(tipo_dado):
+def carregar_opcoes(chave):
     try:
-        res = conn.client.table("configuracoes").select("valor").eq("created_by", st.session_state.usuario).eq("chave", tipo_dado).execute()
+        res = conn.client.table("configuracoes").select("valor").eq("created_by", st.session_state.usuario).eq("chave", chave).execute()
         return [item['valor'] for item in res.data]
     except: return []
 
 df = carregar_dados()
-lista_tipos = carregar_opcoes("tipo") or ["Receita", "Despesa", "Cartão"]
-lista_categorias = carregar_opcoes("categoria") or ["Salário", "Moradia", "Lazer", "Alimentação"]
-
-st.sidebar.title(f"👋 {st.session_state.nome_exibicao}")
-aba = st.sidebar.radio("Navegação", ["📊 Dashboard", "➕ Novo Lançamento", "⚙️ Gerenciar"])
-if st.sidebar.button("Sair"):
-    st.session_state.autenticado = False
-    st.rerun()
-
-# --- CONTEÚDO DAS ABAS ---
-if aba == "📊 Dashboard":
-    st.title("Painel Financeiro")
-    if not df.empty:
-        df['valor'] = pd.to_numeric(df['valor'])
-        r, d = df[df['tipo'] == 'Receita']['valor'].sum(), df[df['tipo'] != 'Receita']['valor'].sum()
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Receitas", f"R$ {r:,.2f}")
-        c2.metric("Despesas", f"R$ {d:,.2f}")
-        c3.metric("Saldo", f"R$ {r-d:,.2f}")
-        st.plotly_chart(px.pie(df, values='valor', names='categoria', hole=0.4), use_container_width=True)
-    else: st.info("Sem lançamentos ainda.")
-
-elif aba == "➕ Novo Lançamento":
-    st.title("Novo Registro")
-    with st.form("f_novo", clear_on_submit=True):
-        col1, col2 = st.columns(2)
-        with col1:
-            d_data, d_desc, d_valor = st.date_input("Data", date.today()), st.text_input("Descrição"), st.number_input("Valor", min_value=0.0)
-        with col2:
-            d_tipo = st.selectbox("Tipo", lista_tipos)
-            d_cat = st.selectbox("Categoria", lista_categorias)
-            d_parc = st.number_input("Meses", min_value=1, value=1)
-        if st.form_submit_button("GRAVAR"):
-            itens = [{"data": (d_data + pd.DateOffset(months=i)).strftime('%Y-%m-%d'), "descricao": d_desc, "valor": float(d_valor/d_parc), "tipo": d_tipo, "categoria": d_cat, "created_by": st.session_state.usuario} for i in range(int(d_parc))]
-            conn.client.table("lancamentos").insert(itens).execute()
-            st.success("Gravado!")
-            st.cache_data.clear()
-            st.rerun()
-
-elif aba == "⚙️ Gerenciar":
-    st.title("Gerenciar Sistema")
-    t1, t2 = st.tabs(["📂 Opções Personalizadas", "🗑️ Excluir Dados"])
-    with t1:
-        st.subheader("Add Novos Tipos/Categorias")
-        c1, c2 = st.columns(2)
-        with c1:
-            nt = st.text_input("Novo Tipo")
-            if st.button("Add Tipo") and nt:
-                conn.client.table("configuracoes").insert({"chave": "tipo", "valor": nt, "created_by": st.session_state.usuario}).execute()
-                st.rerun()
-        with c2:
-            nc = st.text_input("Nova Categoria")
-            if st.button("Add Categoria") and nc:
-                conn.client.table("configuracoes").insert({"chave": "categoria", "valor": nc, "created_by
+lista_tipos = carregar_opcoes("tipo") or ["Receita
