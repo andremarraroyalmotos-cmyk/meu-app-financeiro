@@ -86,7 +86,6 @@ if aba == "📊 Dashboard":
         m2.metric("Despesas", f"R$ {despesas:,.2f}", delta_color="inverse")
         m3.metric("Saldo", f"R$ {receitas - despesas:,.2f}")
 
-        # Gráficos (Restaurados)
         st.divider()
         g1, g2 = st.columns(2)
         with g1:
@@ -100,10 +99,9 @@ if aba == "📊 Dashboard":
             df_evol['data'] = df_evol['data'].astype(str)
             fig_line = px.line(df_evol, x='data', y='valor', markers=True)
             st.plotly_chart(fig_line, use_container_width=True)
-            
 
-        st.subheader("📋 Detalhamento dos Lançamentos")
-        st.dataframe(df_filtrado[['Data Formatada', 'descricao', 'valor', 'tipo', 'categoria', 'parcela']].sort_values('data', ascending=False), use_container_width=True)
+        st.subheader("📋 Detalhamento")
+        st.dataframe(df_filtrado[['Data Formatada', 'descricao', 'valor', 'tipo', 'categoria']].sort_values('data', ascending=False), use_container_width=True)
     else: st.info("Sem dados para exibir.")
 
 # --- ABA 2: NOVO ---
@@ -137,6 +135,34 @@ elif aba == "➕ Novo Lançamento":
                 time.sleep(1)
                 st.rerun()
 
-# --- ABA 3: GERENCIAR (Com Botão de Excluir) ---
+# --- ABA 3: GERENCIAR ---
 elif aba == "⚙️ Gerenciar":
-    st.title("Editar ou Excluir
+    st.title("Editar ou Excluir")
+    if not df.empty:
+        df['label'] = df['data'].dt.strftime('%d/%m/%Y') + " - " + df['descricao']
+        escolha = st.selectbox("Selecione o registro:", df['id'].tolist(), format_func=lambda x: df.loc[df['id']==x, 'label'].values[0])
+        reg = df[df['id'] == escolha].iloc[0]
+        
+        with st.form("f_edit"):
+            st.info(f"Editando ID: {escolha}")
+            new_desc = st.text_input("Nova Descrição", value=reg['descricao'])
+            new_val = st.number_input("Novo Valor", value=float(reg['valor']), step=0.01, format="%.2f")
+            
+            c_ed1, c_ed2 = st.columns(2)
+            btn_update = c_ed1.form_submit_button("💾 Salvar Alterações", use_container_width=True)
+            btn_delete = c_ed2.form_submit_button("🗑️ Excluir Registro", use_container_width=True)
+            
+            if btn_update:
+                conn.client.table("lancamentos").update({"descricao": new_desc, "valor": new_val}).eq("id", escolha).execute()
+                st.success("Atualizado!")
+                st.cache_data.clear()
+                time.sleep(1)
+                st.rerun()
+                
+            if btn_delete:
+                conn.client.table("lancamentos").delete().eq("id", escolha).execute()
+                st.warning("Registro excluído.")
+                st.cache_data.clear()
+                time.sleep(1)
+                st.rerun()
+    else: st.info("Nada para gerenciar.")
