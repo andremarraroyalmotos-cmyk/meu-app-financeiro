@@ -122,16 +122,16 @@ if aba == "📊 Dashboard":
     st.markdown("<h1 style='text-align: left;'>📊 Painel Financeiro</h1>", unsafe_allow_html=True)
     
     if not df.empty:
-        # --- LINHA 1: MÉTRICAS EM COLUNAS ---
+        # MÉTRICAS E DOWNLOAD EM COLUNAS
         r = df[df['tipo'] == 'Receita']['valor'].sum()
         d = df[df['tipo'] != 'Receita']['valor'].sum()
         
         c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
         c1.metric("Receitas", f"R$ {r:,.2f}")
         c2.metric("Despesas", f"R$ {d:,.2f}")
-        c3.metric("Saldo Atual", f"R$ {r-d:,.2f}", delta_color="normal")
+        c3.metric("Saldo Atual", f"R$ {r-d:,.2f}")
         
-        # Botão de Download na quarta coluna
+        # Lógica de Exportação
         buffer = io.BytesIO()
         with pd.ExcelWriter(buffer, engine='openpyxl') as writer:
             df.to_excel(writer, index=False, sheet_name='Lançamentos')
@@ -145,20 +145,19 @@ if aba == "📊 Dashboard":
 
         st.markdown("---")
 
-        # --- LINHA 2: GRÁFICOS LADO A LADO ---
+        # GRÁFICOS LADO A LADO
         col_g1, col_g2 = st.columns(2)
         with col_g1:
             fig1 = px.pie(df, values='valor', names='categoria', hole=0.5, title="Gastos por Categoria")
-            fig1.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", title_font_color="white")
+            fig1.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white")
             st.plotly_chart(fig1, use_container_width=True)
         with col_g2:
             evo = df.groupby('Mês')['valor'].sum().reset_index()
             fig2 = px.bar(evo, x='Mês', y='valor', title="Fluxo Mensal", color_discrete_sequence=['#ffffff'])
-            fig2.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white", title_font_color="white")
+            fig2.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white")
             st.plotly_chart(fig2, use_container_width=True)
             
-        # --- LINHA 3: TABELA DETALHADA ---
-        st.markdown("### 📋 Todos os Lançamentos")
+        st.markdown("### 📋 Histórico")
         st.dataframe(df[['data', 'descricao', 'valor', 'tipo', 'categoria']].sort_values(by='data', ascending=False), use_container_width=True)
     else:
         st.info("Nenhum dado encontrado.")
@@ -186,4 +185,52 @@ elif aba == "➕ Lançamento":
 
 elif aba == "⚙️ Gerenciar":
     st.markdown("<h1 style='text-align: left;'>⚙️ Configurações</h1>", unsafe_allow_html=True)
-    t_personalizar, t_editar, t_excluir = st.tabs(["📂 Opções", "✏️ Editar", "
+    
+    # CORREÇÃO DA LINHA 189 AQUI
+    t_personalizar, t_editar, t_excluir = st.tabs(["📂 Opções", "✏️ Editar", "🗑️ Excluir"])
+
+    with t_personalizar:
+        col_a, col_b = st.columns(2)
+        with col_a:
+            with st.form("new_tipo"):
+                novo_t = st.text_input("Novo Tipo")
+                if st.form_submit_button("Adicionar"):
+                    conn.client.table("configuracoes").insert({"chave": "tipo", "valor": novo_t, "created_by": st.session_state.usuario}).execute()
+                    st.rerun()
+        with col_b:
+            with st.form("new_cat"):
+                novo_c = st.text_input("Nova Categoria")
+                if st.form_submit_button("Adicionar"):
+                    conn.client.table("configuracoes").insert({"chave": "categoria", "valor": novo_c, "created_by": st.session_state.usuario}).execute()
+                    st.rerun()
+
+    with t_editar:
+        if not df.empty:
+            df_sorted = df.sort_values(by='data', ascending=False)
+            selecionado = st.selectbox("Selecione para alterar:", df_sorted['id'].tolist(), 
+                                       format_func=lambda x: f"{df.loc[df['id']==x, 'descricao'].values[0]} (R$ {df.loc[df['id']==x, 'valor'].values[0]})")
+            item_atual = df[df['id'] == selecionado].iloc[0]
+            with st.form("edit_form"):
+                e1, e2 = st.columns(2)
+                with e1:
+                    n_dt = st.date_input("Nova Data", item_atual['data'])
+                    n_ds = st.text_input("Nova Descrição", item_atual['descricao'])
+                with e2:
+                    n_vl = st.number_input("Novo Valor", value=float(item_atual['valor']))
+                    n_tp = st.selectbox("Novo Tipo", tipos_disp, index=tipos_disp.index(item_atual['tipo']) if item_atual['tipo'] in tipos_disp else 0)
+                    n_ct = st.selectbox("Nova Categoria", cats_disp, index=cats_disp.index(item_atual['categoria']) if item_atual['categoria'] in cats_disp else 0)
+                if st.form_submit_button("✅ SALVAR ALTERAÇÕES"):
+                    conn.client.table("lancamentos").update({"data": n_dt.strftime('%Y-%m-%d'), "descricao": n_ds, "valor": n_vl, "tipo": n_tp, "categoria": n_ct}).eq("id", selecionado).execute()
+                    st.cache_data.clear()
+                    st.success("Atualizado!")
+                    time.sleep(1)
+                    st.rerun()
+        else: st.warning("Sem dados.")
+
+    with t_excluir:
+        if not df.empty:
+            id_del = st.selectbox("Apagar lançamento:", df['id'].tolist(), format_func=lambda x: f"{df.loc[df['id']==x, 'descricao'].values[0]}")
+            if st.button("🗑️ EXCLUIR"):
+                conn.client.table("lancamentos").delete().eq("id", id_del).execute()
+                st.cache_data.clear()
+                st.rerun()
