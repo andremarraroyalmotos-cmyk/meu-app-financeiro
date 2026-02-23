@@ -40,7 +40,7 @@ if not st.session_state.autenticado:
                 try:
                     conn.client.table("usuarios").insert({"email": n_email, "senha": n_senha, "nome": n_nome}).execute()
                     st.success("Conta criada com sucesso! Faça login.")
-                except: st.error("Erro: Este e-mail já pode estar cadastrado.")
+                except: st.error("Erro: E-mail já cadastrado.")
     st.stop()
 
 # --- CARREGAMENTO DE DADOS ---
@@ -77,31 +77,35 @@ if aba == "📊 Dashboard":
         
         df_filtrado = df[(df['data'].dt.date >= data_ini) & (df['data'].dt.date <= data_fim)].copy()
 
-        # Métricas
-        receitas = df_filtrado[df_filtrado['tipo'] == 'Receita']['valor'].sum()
-        despesas = df_filtrado[df_filtrado['tipo'] != 'Receita']['valor'].sum()
-        
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Receitas", f"R$ {receitas:,.2f}")
-        m2.metric("Despesas", f"R$ {despesas:,.2f}", delta_color="inverse")
-        m3.metric("Saldo", f"R$ {receitas - despesas:,.2f}")
-
-        st.divider()
-        g1, g2 = st.columns(2)
-        with g1:
-            st.subheader("Gastos por Categoria")
-            fig_pizza = px.pie(df_filtrado[df_filtrado['tipo'] != 'Receita'], values='valor', names='categoria', hole=0.3)
-            st.plotly_chart(fig_pizza, use_container_width=True)
+        if not df_filtrado.empty:
+            receitas = df_filtrado[df_filtrado['tipo'] == 'Receita']['valor'].sum()
+            despesas = df_filtrado[df_filtrado['tipo'] != 'Receita']['valor'].sum()
             
-        with g2:
-            st.subheader("Evolução Mensal")
-            df_evol = df_filtrado.groupby(df_filtrado['data'].dt.to_period('M'))['valor'].sum().reset_index()
-            df_evol['data'] = df_evol['data'].astype(str)
-            fig_line = px.line(df_evol, x='data', y='valor', markers=True)
-            st.plotly_chart(fig_line, use_container_width=True)
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Receitas", f"R$ {receitas:,.2f}")
+            m2.metric("Despesas", f"R$ {despesas:,.2f}", delta_color="inverse")
+            m3.metric("Saldo", f"R$ {receitas - despesas:,.2f}")
 
-        st.subheader("📋 Detalhamento")
-        st.dataframe(df_filtrado[['Data Formatada', 'descricao', 'valor', 'tipo', 'categoria']].sort_values('data', ascending=False), use_container_width=True)
+            st.divider()
+            g1, g2 = st.columns(2)
+            with g1:
+                st.subheader("Gastos por Categoria")
+                fig_pizza = px.pie(df_filtrado[df_filtrado['tipo'] != 'Receita'], values='valor', names='categoria', hole=0.3)
+                st.plotly_chart(fig_pizza, use_container_width=True)
+                
+            with g2:
+                st.subheader("Evolução Mensal")
+                df_evol = df_filtrado.groupby(df_filtrado['data'].dt.to_period('M'))['valor'].sum().reset_index()
+                df_evol['data'] = df_evol['data'].astype(str)
+                fig_line = px.line(df_evol, x='data', y='valor', markers=True)
+                st.plotly_chart(fig_line, use_container_width=True)
+
+            st.subheader("📋 Detalhamento")
+            # CORREÇÃO DO KEYERROR AQUI:
+            df_display = df_filtrado.sort_values('data', ascending=False)
+            st.dataframe(df_display[['Data Formatada', 'descricao', 'valor', 'tipo', 'categoria']], use_container_width=True)
+        else:
+            st.warning("Nenhum dado encontrado para o período selecionado.")
     else: st.info("Sem dados para exibir.")
 
 # --- ABA 2: NOVO ---
@@ -120,20 +124,22 @@ elif aba == "➕ Novo Lançamento":
         
         if st.form_submit_button("🚀 Salvar Registro"):
             if d_desc and d_valor > 0:
-                novos = []
-                for i in range(int(d_parc)):
-                    dt = d_data + pd.DateOffset(months=i)
-                    novos.append({
-                        "data": dt.strftime('%Y-%m-%d'),
-                        "descricao": f"{d_desc} ({i+1}/{int(d_parc)})" if d_parc > 1 else d_desc,
-                        "valor": float(d_valor/d_parc),
-                        "tipo": d_tipo, "categoria": d_cat, "created_by": st.session_state.usuario
-                    })
-                conn.client.table("lancamentos").insert(novos).execute()
-                st.success("Gravado com sucesso!")
-                st.cache_data.clear()
-                time.sleep(1)
-                st.rerun()
+                try:
+                    novos = []
+                    for i in range(int(d_parc)):
+                        dt = d_data + pd.DateOffset(months=i)
+                        novos.append({
+                            "data": dt.strftime('%Y-%m-%d'),
+                            "descricao": f"{d_desc} ({i+1}/{int(d_parc)})" if d_parc > 1 else d_desc,
+                            "valor": float(d_valor/d_parc),
+                            "tipo": d_tipo, "categoria": d_cat, "created_by": st.session_state.usuario
+                        })
+                    conn.client.table("lancamentos").insert(novos).execute()
+                    st.success("Gravado!")
+                    st.cache_data.clear()
+                    time.sleep(1)
+                    st.rerun()
+                except Exception as e: st.error(f"Erro ao salvar: {e}")
 
 # --- ABA 3: GERENCIAR ---
 elif aba == "⚙️ Gerenciar":
@@ -144,25 +150,15 @@ elif aba == "⚙️ Gerenciar":
         reg = df[df['id'] == escolha].iloc[0]
         
         with st.form("f_edit"):
-            st.info(f"Editando ID: {escolha}")
-            new_desc = st.text_input("Nova Descrição", value=reg['descricao'])
-            new_val = st.number_input("Novo Valor", value=float(reg['valor']), step=0.01, format="%.2f")
+            ed_desc = st.text_input("Nova Descrição", value=reg['descricao'])
+            ed_val = st.number_input("Novo Valor", value=float(reg['valor']), step=0.01, format="%.2f")
             
             c_ed1, c_ed2 = st.columns(2)
-            btn_update = c_ed1.form_submit_button("💾 Salvar Alterações", use_container_width=True)
-            btn_delete = c_ed2.form_submit_button("🗑️ Excluir Registro", use_container_width=True)
-            
-            if btn_update:
-                conn.client.table("lancamentos").update({"descricao": new_desc, "valor": new_val}).eq("id", escolha).execute()
-                st.success("Atualizado!")
+            if c_ed1.form_submit_button("💾 Salvar", use_container_width=True):
+                conn.client.table("lancamentos").update({"descricao": ed_desc, "valor": ed_val}).eq("id", escolha).execute()
                 st.cache_data.clear()
-                time.sleep(1)
                 st.rerun()
-                
-            if btn_delete:
+            if c_ed2.form_submit_button("🗑️ Excluir", use_container_width=True):
                 conn.client.table("lancamentos").delete().eq("id", escolha).execute()
-                st.warning("Registro excluído.")
                 st.cache_data.clear()
-                time.sleep(1)
                 st.rerun()
-    else: st.info("Nada para gerenciar.")
