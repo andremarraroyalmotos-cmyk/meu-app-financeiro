@@ -11,7 +11,7 @@ conn = st.connection(
     "supabase",
     type=SupabaseConnection,
     url="https://oirdbzrgwmohqcmhlhas.supabase.co",
-    key="SUA_CHAVE_SERVICE_ROLE_AQUI"
+    key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9pcmRienJnd21vaHFjbWhsaGFzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTg0NjgzOSwiZXhwIjoyMDg3NDIyODM5fQ.zVJh2FzRdMaMfj56mWSxhBmPJKvUKWQE6xUass4-yIM"
 )
 
 # --- SISTEMA DE LOGIN SIMPLES ---
