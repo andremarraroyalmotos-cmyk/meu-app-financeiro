@@ -6,7 +6,7 @@ from datetime import date, datetime
 import time
 
 # --- CONFIGURAÇÃO ---
-st.set_page_config(page_title="Finanças Pro SaaS", layout="wide", page_icon="🚀")
+st.set_page_config(page_title="Minhas Finanças", layout="wide", page_icon="🚀")
 
 # Conexão
 conn = st.connection("supabase", type=SupabaseConnection, 
