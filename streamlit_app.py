@@ -7,20 +7,21 @@ import time
 import base64
 import os
 
-# --- CONFIGURAÇÃO DA PÁGINA ---
+# --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="MoneyFlow Pro", layout="wide", page_icon="💰")
 
-# --- CONEXÃO SUPABASE ---
+# --- 2. CONEXÃO SUPABASE ---
 conn = st.connection("supabase", type=SupabaseConnection, 
                      url="https://oirdbzrgwmohqcmhlhas.supabase.co", 
                      key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9pcmRienJnd21vaHFjbWhsaGFzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTg0NjgzOSwiZXhwIjoyMDg3NDIyODM5fQ.zVJh2FzRdMaMfj56mWSxhBmPJKvUKWQE6xUass4-yIM")
 
-# --- INICIALIZAÇÃO DE SESSÃO ---
+# --- 3. INICIALIZAÇÃO DE SESSÃO ---
 if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
 
-# --- TRATAMENTO DA LOGO (REMOÇÃO DE FUNDO) ---
+# --- 4. TRATAMENTO DA LOGO (REMOÇÃO DE FUNDO BRANCO) ---
 logo_html = "<h1 style='text-align: center; color: white;'>MONEYFLOW</h1>" 
+
 def get_base64_image(image_path):
     if os.path.exists(image_path):
         with open(image_path, "rb") as img_file:
@@ -32,82 +33,63 @@ if img_b64:
     logo_html = f'''
     <div style="text-align: center;">
         <img src="data:image/png;base64,{img_b64}" width="220" 
-        style="mix-blend-mode: multiply; filter: contrast(110%); margin-bottom: 10px;">
+        style="mix-blend-mode: multiply; filter: contrast(110%); margin-bottom: 5px;">
     </div>'''
 
-# --- CSS DEFINITIVO (CORREÇÃO DO BOTÃO CORTADO) ---
+# --- 5. CSS PREMIUM (CENTRALIZAÇÃO E BOTÃO TOTAL) ---
 st.markdown(f"""
     <style>
-    /* Fundo Gradiente */
+    /* Fundo Geral */
     .stApp {{
         background: linear-gradient(135deg, #0093E9 0%, #80D0C7 50%, #931ca1 100%) !important;
         background-attachment: fixed;
     }}
     header {{visibility: hidden;}}
     
-    /* Container do Formulário */
+    /* Cartão do Formulário */
     [data-testid="stForm"] {{
         background: rgba(255, 255, 255, 0.98) !important;
         border-radius: 30px !important;
         padding: 40px !important;
         box-shadow: 0 20px 40px rgba(0,0,0,0.2) !important;
         border: none !important;
-        display: flex;
-        flex-direction: column;
     }}
 
-    /* BOTÃO - CORREÇÃO DE TAMANHO E TEXTO */
-    /* Forçamos o container do botão a aceitar largura total */
-    div.stButton, div.stFormSubmitButton {{
-        display: block !important;
-        width: 100% !important;
-        text-align: center !important;
-    }}
-
-    /* Estilização real do botão */
+    /* BOTÃO ESTILIZADO E CENTRALIZADO */
     div.stButton > button, div.stFormSubmitButton > button {{
         background: linear-gradient(90deg, #12c2e9 0%, #c471ed 50%, #f64f59 100%) !important;
         color: white !important;
-        width: 100% !important; /* Largura total do form */
-        min-height: 60px !important; /* Altura mínima para não cortar o texto */
-        height: auto !important;
-        padding: 15px 20px !important;
+        width: 100% !important;
         border: none !important;
-        border-radius: 15px !important;
+        padding: 1.2rem 0px !important;
         font-size: 18px !important;
         font-weight: 800 !important;
+        border-radius: 15px !important;
         text-transform: uppercase !important;
         letter-spacing: 1px !important;
-        white-space: normal !important; /* Permite que o texto se ajuste se necessário */
-        word-wrap: break-word !important;
         box-shadow: 0 10px 20px rgba(196, 113, 237, 0.4) !important;
-        margin-top: 25px !important;
-        transition: all 0.3s ease !important;
+        margin-top: 20px !important;
+        transition: 0.3s !important;
     }}
 
-    div.stButton > button:hover, div.stFormSubmitButton > button:hover {{
+    div.stButton > button:hover {{
         transform: translateY(-3px) !important;
         box-shadow: 0 15px 25px rgba(196, 113, 237, 0.6) !important;
     }}
 
-    /* Ajuste de Inputs para não ficarem colados */
-    .stTextInput {{
-        margin-bottom: 15px !important;
-    }}
+    /* Centralizar Tabs */
+    .stTabs [data-baseweb="tab-list"] {{ justify-content: center; gap: 20px; }}
+    .stTabs [aria-selected="true"] {{ color: #0093E9 !important; border-bottom: 3px solid #0093E9 !important; }}
     
+    /* Inputs */
     .stTextInput input {{
         border-radius: 12px !important;
         background-color: #f8f9fa !important;
-        border: 1px solid #eee !important;
-        height: 45px !important;
     }}
-
-    /* Centralização das Tabs */
-    .stTabs [data-baseweb="tab-list"] {{ justify-content: center; gap: 20px; }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- TELA DE ACESSO ---
+# --- 6. TELA DE ACESSO (LOGIN / CADASTRO) ---
 if not st.session_state.autenticado:
     _, col_central, _ = st.columns([1, 1.8, 1])
     
@@ -115,15 +97,14 @@ if not st.session_state.autenticado:
         st.markdown(logo_html, unsafe_allow_html=True)
         st.markdown("<p style='text-align: center; color: white; margin-top: -10px; margin-bottom: 25px;'>Smart Finance. Brighter Future.</p>", unsafe_allow_html=True)
         
-        tab_log, tab_reg, tab_sup = st.tabs(["🔐 Entrar", "📝 Criar Conta", "❔ Suporte"])
+        tab_log, tab_reg, tab_sup = st.tabs(["🔐 Entrar", "📝 Cadastro", "❔ Suporte"])
         
         with tab_log:
             with st.form("form_login"):
-                st.markdown("<p style='color: #333; font-weight: bold;'>Bem-vindo de volta</p>", unsafe_allow_html=True)
+                st.markdown("<h3 style='text-align: center; color: #333;'>Bem-vindo</h3>", unsafe_allow_html=True)
                 email_in = st.text_input("E-mail", placeholder="seu@email.com")
                 pass_in = st.text_input("Senha", type="password", placeholder="••••••••")
                 
-                # O botão agora deve aparecer grande e centralizado
                 if st.form_submit_button("ACESSAR DASHBOARD"):
                     res = conn.client.table("usuarios").select("*").eq("email", email_in).eq("senha", pass_in).execute()
                     if res.data:
@@ -139,21 +120,43 @@ if not st.session_state.autenticado:
 
         with tab_reg:
             with st.form("form_registro"):
-                st.markdown("<p style='color: #333; font-weight: bold;'>Crie sua conta</p>", unsafe_allow_html=True)
-                n_nome = st.text_input("Nome")
+                st.markdown("<h3 style='text-align: center; color: #333;'>Cadastro</h3>", unsafe_allow_html=True)
+                n_nome = st.text_input("Nome Completo")
                 n_email = st.text_input("E-mail")
                 n_senha = st.text_input("Senha", type="password")
                 
-                # Botão de cadastro seguindo o mesmo padrão
-                if st.form_submit_button("CRIAR MINHA CONTA AGORA"):
+                if st.form_submit_button("CRIAR MINHA CONTA"):
                     try:
                         conn.client.table("usuarios").insert({"email": n_email, "senha": n_senha, "nome": n_nome, "ativo": True, "plano": "Free"}).execute()
-                        st.success("Conta criada! Faça login.")
+                        st.success("Conta criada! Vá para a aba Entrar.")
                     except: st.error("E-mail já cadastrado.")
 
         with tab_sup:
-            st.info("Suporte: suporte@moneyflow.com")
+            st.markdown("<h3 style='text-align: center; color: #333;'>Suporte</h3>", unsafe_allow_html=True)
+            st.info("E-mail: suporte@moneyflow.com")
     st.stop()
 
-# --- CONTINUAÇÃO DO DASHBOARD... ---
-st.title("Bem-vindo ao Dashboard")
+# --- 7. ÁREA LOGADA (DASHBOARD) ---
+
+@st.cache_data(ttl=60)
+def carregar_dados():
+    try:
+        res = conn.client.table("lancamentos").select("*").eq("created_by", st.session_state.usuario).execute()
+        df_b = pd.DataFrame(res.data)
+        if not df_b.empty:
+            df_b['data'] = pd.to_datetime(df_b['data'])
+            df_b['valor'] = pd.to_numeric(df_b['valor'])
+            df_b['Data Formatada'] = df_b['data'].dt.strftime('%d/%m/%Y')
+        return df_b
+    except: return pd.DataFrame()
+
+df = carregar_dados()
+
+# MENU LATERAL
+EMAIL_ADMIN = "seu_email@admin.com" 
+menu_opcoes = ["📊 Dashboard", "➕ Novo Lançamento", "⚙️ Gerenciar"]
+if st.session_state.usuario == EMAIL_ADMIN:
+    menu_opcoes.append("👑 ADMINISTRAÇÃO")
+
+st.sidebar.title(f"👋 {st.session_state.nome_exibicao}")
+aba = st.sidebar.radio("Navegação", menu_opcoes)
