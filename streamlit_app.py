@@ -3,8 +3,9 @@ from st_supabase_connection import SupabaseConnection
 import pandas as pd
 import plotly.express as px
 from datetime import date
-import os
+import time
 import base64
+import os
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="MoneyFlow Pro", layout="wide", page_icon="💰")
@@ -14,52 +15,123 @@ conn = st.connection("supabase", type=SupabaseConnection,
                      url="https://oirdbzrgwmohqcmhlhas.supabase.co", 
                      key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9pcmRienJnd21vaHFjbWhsaGFzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTg0NjgzOSwiZXhwIjoyMDg3NDIyODM5fQ.zVJh2FzRdMaMfj56mWSxhBmPJKvUKWQE6xUass4-yIM")
 
-# --- FUNÇÃO IMAGEM ---
-def get_base64(bin_file):
-    if os.path.exists(bin_file):
-        with open(bin_file, 'rb') as f:
-            data = f.read()
-        return base64.b64encode(data).decode()
-    return None
-
-if 'autenticado' not in st.session_state: 
+# --- 3. INICIALIZAÇÃO SEGURA DO STATE ---
+if 'autenticado' not in st.session_state:
     st.session_state.autenticado = False
+if 'usuario' not in st.session_state:
+    st.session_state.usuario = None
+if 'nome_exibicao' not in st.session_state:
+    st.session_state.nome_exibicao = "Usuário"
 
-# --- 3. CSS UNIFICADO (BOTÃO SAIR AZUL MARINHO) ---
-st.markdown("""
+# --- 4. CSS: GLASSMORPHISM & CENTRALIZAÇÃO ---
+st.markdown(f"""
     <style>
-    .stApp { background-color: #F8FAFC !important; }
-    
-    /* BOTÃO SAIR NA SIDEBAR - AZUL MARINHO */
-    div[data-testid="stSidebar"] button {
-        background-color: #1E3A8A !important;
-        color: white !important;
-        font-weight: bold !important;
-        width: 100% !important;
-        border-radius: 8px !important;
-        border: none !important;
-        height: 45px !important;
-    }
-    
-    /* CARDS DE MÉTRICAS */
-    [data-testid="stMetric"] {
+    .stApp {{
+        background: linear-gradient(135deg, #0093E9 0%, #80D0C7 50%, #931ca1 100%) !important;
+        background-attachment: fixed;
+    }}
+    header {{visibility: hidden;}}
+
+    [data-testid="stSidebar"] {{
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        backdrop-filter: blur(12px);
+    }}
+
+    [data-testid="stForm"], div.stMetric, .stTable, .stDataFrame, .stTabs {{
+        background: rgba(255, 255, 255, 0.1) !important;
+        backdrop-filter: blur(15px);
+        border-radius: 20px !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        padding: 25px !important;
+        margin-bottom: 20px;
+    }}
+
+    .stFormSubmitButton {{
+        display: flex;
+        justify-content: center;
+        width: 100%;
+    }}
+
+    .stFormSubmitButton button {{
         background: white !important;
+        color: #0093E9 !important;
+        width: 100% !important;
+        max-width: 300px;
         border-radius: 12px !important;
-        padding: 15px !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05) !important;
-        border-left: 5px solid #1E3A8A !important;
-    }
-    
-    h1, h2, h3 { color: #1E3A8A !important; }
+        font-weight: 800 !important;
+        height: 50px !important;
+        border: none !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    }}
+
+    .stButton button {{
+        background-color: rgba(0, 0, 0, 0.3) !important;
+        color: white !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        border-radius: 10px !important;
+    }}
+
+    h1, h2, h3, label, [data-testid="stMetricValue"], [data-testid="stSidebar"] p {{
+        color: white !important;
+        text-align: center;
+    }}
+
+    .stTabs [data-baseweb="tab-list"] {{
+        justify-content: center !important;
+    }}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. FUNÇÕES DE BUSCA (SUPABASE) ---
-@st.cache_data(ttl=2)
+# --- 5. TELA DE LOGIN ---
+if not st.session_state.autenticado:
+    _, col_central, _ = st.columns([1, 1.8, 1])
+    with col_central:
+        st.markdown("<h1 style='font-size: 2.5em;'>MONEYFLOW PRO</h1>", unsafe_allow_html=True)
+        t_log, t_reg, t_rec, t_sup = st.tabs(["🔐 Entrar", "📝 Cadastro", "🔑 Senha", "❔ Suporte"])
+        
+        with t_log:
+            with st.form("login_form"):
+                e_in = st.text_input("E-mail")
+                s_in = st.text_input("Senha", type="password")
+                if st.form_submit_button("ACESSAR DASHBOARD"):
+                    res = conn.client.table("usuarios").select("*").eq("email", e_in).eq("senha", s_in).execute()
+                    if res.data:
+                        st.session_state.autenticado = True
+                        st.session_state.usuario = res.data[0]['email']
+                        st.session_state.nome_exibicao = res.data[0]['nome']
+                        st.rerun()
+                    else: st.error("Dados incorretos.")
+        
+        with t_reg:
+            with st.form("reg_form"):
+                n = st.text_input("Nome")
+                em = st.text_input("E-mail")
+                se = st.text_input("Senha", type="password")
+                if st.form_submit_button("CADASTRAR"):
+                    conn.client.table("usuarios").insert({"email": em, "senha": se, "nome": n}).execute()
+                    st.success("Pronto! Faça login.")
+
+        with t_rec:
+            with st.form("rec_form"):
+                st.text_input("E-mail de recuperação")
+                if st.form_submit_button("ENVIAR"): st.info("Verifique seu e-mail.")
+
+        with t_sup:
+            st.write("Suporte: contato@moneyflow.com")
+            
+    st.stop()
+
+# --- 6. FUNÇÕES DE DADOS ---
+@st.cache_data(ttl=10)
 def carregar_dados():
     try:
         res = conn.client.table("lancamentos").select("*").eq("created_by", st.session_state.usuario).execute()
-        return pd.DataFrame(res.data)
+        df_p = pd.DataFrame(res.data)
+        if not df_p.empty:
+            df_p['data'] = pd.to_datetime(df_p['data'])
+            df_p['valor'] = pd.to_numeric(df_p['valor'])
+            df_p['Mês'] = df_p['data'].dt.strftime('%b/%y')
+        return df_p
     except: return pd.DataFrame()
 
 def carregar_opcoes(chave):
@@ -68,115 +140,94 @@ def carregar_opcoes(chave):
         return [item['valor'] for item in res.data]
     except: return []
 
-# --- 5. TELA DE LOGIN ---
-if not st.session_state.autenticado:
-    st.markdown("<style>.stApp { background: linear-gradient(135deg, #0093E9 0%, #80D0C7 100%) !important; }</style>", unsafe_allow_html=True)
-    img_b64 = get_base64("logo.png")
-    if img_b64:
-        st.markdown(f'<div style="text-align:center;"><img src="data:image/png;base64,{img_b64}" width="300"></div>', unsafe_allow_html=True)
-    
-    col1, col2, col3 = st.columns([1, 1.5, 1])
-    with col2:
-        with st.form("login_form"):
-            st.markdown("<h2 style='text-align:center;'>Acesso</h2>", unsafe_allow_html=True)
-            u_email = st.text_input("E-mail")
-            u_pass = st.text_input("Senha", type="password")
-            if st.form_submit_button("ENTRAR"):
-                res = conn.client.table("usuarios").select("*").eq("email", u_email).eq("senha", u_pass).execute()
-                if res.data:
-                    st.session_state.autenticado, st.session_state.usuario = True, u_email
-                    st.rerun()
-                else: st.error("Dados incorretos.")
-    st.stop()
-
-# --- 6. SISTEMA PRINCIPAL (RESTAURADO) ---
-df_raw = carregar_dados()
-if not df_raw.empty:
-    df_raw['data'] = pd.to_datetime(df_raw['data']).dt.date
-    df_raw['valor'] = pd.to_numeric(df_raw['valor'])
-
-tipos_disp = carregar_opcoes("tipo") or ["Receita", "Despesa"]
-cats_disp = carregar_opcoes("categoria") or ["Alimentação", "Salário", "Lazer", "Transporte"]
+df = carregar_dados()
+tipos_disp = carregar_opcoes("tipo") or ["Receita", "Despesa", "Cartão"]
+cats_disp = carregar_opcoes("categoria") or ["Salário", "Moradia", "Lazer", "Alimentação"]
 
 # Sidebar
-if os.path.exists("logo.png"):
-    st.sidebar.image("logo.png", width=150)
-menu = st.sidebar.radio("Navegação", ["📊 Dashboard", "➕ Novo Lançamento", "⚙️ Gerenciar"])
+st.sidebar.markdown(f"### Olá, **{st.session_state.nome_exibicao}**")
+aba = st.sidebar.radio("Navegação", ["📊 Dashboard", "➕ Lançamento", "⚙️ Gerenciar"])
 
-st.sidebar.markdown("---")
 if st.sidebar.button("🚪 Sair"):
     st.session_state.autenticado = False
     st.rerun()
 
-# --- ABA DASHBOARD ---
-if menu == "📊 Dashboard":
-    st.title("📊 Painel Financeiro")
-    if not df_raw.empty:
-        c1, c2 = st.columns(2)
-        d1 = c1.date_input("Início", date.today().replace(day=1))
-        d2 = c2.date_input("Fim", date.today())
-        
-        df_filt = df_raw[(df_raw['data'] >= d1) & (df_raw['data'] <= d2)]
-        
-        m1, m2, m3 = st.columns(3)
-        rec = df_filt[df_filt['tipo'] == 'Receita']['valor'].sum()
-        des = df_filt[df_filt['tipo'] != 'Receita']['valor'].sum()
-        m1.metric("Receitas", f"R$ {rec:,.2f}")
-        m2.metric("Despesas", f"R$ {des:,.2f}")
-        m3.metric("Saldo", f"R$ {rec - des:,.2f}")
-        
-        g1, g2 = st.columns(2)
-        with g1:
-            st.plotly_chart(px.pie(df_filt, values='valor', names='categoria', hole=0.4, title="Gastos por Categoria"), use_container_width=True)
-        with g2:
-            st.plotly_chart(px.bar(df_filt.groupby('data')['valor'].sum().reset_index(), x='data', y='valor', title="Fluxo Diário"), use_container_width=True)
-        
-        st.dataframe(df_filt.drop(columns=['id', 'created_by'], errors='ignore'), use_container_width=True)
+# --- CONTEÚDO ---
+if aba == "📊 Dashboard":
+    st.markdown("<h1 style='text-align: left;'>📊 Painel Geral</h1>", unsafe_allow_html=True)
+    if not df.empty:
+        r, d = df[df['tipo'] == 'Receita']['valor'].sum(), df[df['tipo'] != 'Receita']['valor'].sum()
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Receitas", f"R$ {r:,.2f}")
+        c2.metric("Despesas", f"R$ {d:,.2f}")
+        c3.metric("Saldo", f"R$ {r-d:,.2f}")
 
-# --- ABA NOVO LANÇAMENTO ---
-elif menu == "➕ Novo Lançamento":
-    st.title("➕ Novo Registro")
-    with st.form("form_novo"):
         col1, col2 = st.columns(2)
-        data_lan = col1.date_input("Data", date.today())
-        desc_lan = col1.text_input("Descrição")
-        valor_lan = col2.number_input("Valor", min_value=0.0)
-        tipo_lan = col2.selectbox("Tipo", tipos_disp)
-        cat_lan = st.selectbox("Categoria", cats_disp)
-        if st.form_submit_button("SALVAR"):
-            conn.client.table("lancamentos").insert({
-                "data": str(data_lan), "descricao": desc_lan, "valor": valor_lan,
-                "tipo": tipo_lan, "categoria": cat_lan, "created_by": st.session_state.usuario
-            }).execute()
-            st.cache_data.clear()
-            st.success("Salvo com sucesso!")
-            st.rerun()
+        with col1:
+            fig1 = px.pie(df, values='valor', names='categoria', hole=0.5, title="Gastos por Categoria")
+            fig1.update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white")
+            st.plotly_chart(fig1, use_container_width=True)
+        with col2:
+            evo = df.groupby('Mês')['valor'].sum().reset_index()
+            fig2 = px.bar(evo, x='Mês', y='valor', title="Fluxo Mensal", color_discrete_sequence=['#ffffff'])
+            fig2.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white")
+            st.plotly_chart(fig2, use_container_width=True)
+    else:
+        st.info("Nenhum dado para exibir. Vá em 'Novo Lançamento'.")
 
-# --- ABA GERENCIAR (EDIÇÃO E EXCLUSÃO) ---
-elif menu == "⚙️ Gerenciar":
-    st.title("⚙️ Gerenciar")
-    t_edit, t_del = st.tabs(["✏️ Editar", "🗑️ Excluir"])
-    
-    with t_edit:
-        if not df_raw.empty:
-            sel_id = st.selectbox("Selecione para editar:", df_raw['id'].tolist(), 
-                                  format_func=lambda x: f"{df_raw.loc[df_raw['id']==x, 'descricao'].values[0]} - R$ {df_raw.loc[df_raw['id']==x, 'valor'].values[0]}")
-            item = df_raw[df_raw['id'] == sel_id].iloc[0]
-            with st.form("edit_form"):
-                n_desc = st.text_input("Nova Descrição", item['descricao'])
-                n_val = st.number_input("Novo Valor", value=float(item['valor']))
-                if st.form_submit_button("ATUALIZAR"):
-                    conn.client.table("lancamentos").update({"descricao": n_desc, "valor": n_val}).eq("id", sel_id).execute()
-                    st.cache_data.clear()
-                    st.success("Atualizado!")
-                    st.rerun()
-
-    with t_del:
-        if not df_raw.empty:
-            del_id = st.selectbox("Selecione para excluir:", df_raw['id'].tolist(), 
-                                  format_func=lambda x: f"{df_raw.loc[df_raw['id']==x, 'descricao'].values[0]}")
-            if st.button("🗑️ EXCLUIR DEFINITIVAMENTE"):
-                conn.client.table("lancamentos").delete().eq("id", del_id).execute()
+elif aba == "➕ Lançamento":
+    st.markdown("<h1 style='text-align: left;'>➕ Registrar</h1>", unsafe_allow_html=True)
+    with st.form("add_form"):
+        c1, c2 = st.columns(2)
+        with c1:
+            dt = st.date_input("Data", date.today())
+            ds = st.text_input("Descrição")
+            vl = st.number_input("Valor", min_value=0.0)
+        with c2:
+            tp = st.selectbox("Tipo", tipos_disp)
+            ct = st.selectbox("Categoria", cats_disp)
+            pr = st.number_input("Repetir (Meses)", min_value=1, value=1)
+        
+        if st.form_submit_button("SALVAR REGISTRO"):
+            if ds and vl > 0:
+                itens = [{"data": (dt + pd.DateOffset(months=i)).strftime('%Y-%m-%d'), "descricao": ds, "valor": float(vl/pr), "tipo": tp, "categoria": ct, "created_by": st.session_state.usuario} for i in range(int(pr))]
+                conn.client.table("lancamentos").insert(itens).execute()
                 st.cache_data.clear()
-                st.success("Removido!")
+                st.success("Salvo com sucesso!")
+                time.sleep(1)
                 st.rerun()
+
+elif aba == "⚙️ Gerenciar":
+    st.markdown("<h1 style='text-align: left;'>⚙️ Configurações</h1>", unsafe_allow_html=True)
+    
+    # Parte 1: Personalização de Opções
+    st.subheader("Personalizar Categorias e Tipos")
+    col_a, col_b = st.columns(2)
+    with col_a:
+        with st.form("new_tipo"):
+            novo_t = st.text_input("Novo Tipo (ex: Investimento)")
+            if st.form_submit_button("Adicionar Tipo"):
+                conn.client.table("configuracoes").insert({"chave": "tipo", "valor": novo_t, "created_by": st.session_state.usuario}).execute()
+                st.rerun()
+    with col_b:
+        with st.form("new_cat"):
+            novo_c = st.text_input("Nova Categoria (ex: Pet)")
+            if st.form_submit_button("Adicionar Categoria"):
+                conn.client.table("configuracoes").insert({"chave": "categoria", "valor": novo_c, "created_by": st.session_state.usuario}).execute()
+                st.rerun()
+
+    # Parte 2: Exclusão de Lançamentos
+    st.markdown("---")
+    st.subheader("Gerenciar Lançamentos Existentes")
+    if not df.empty:
+        id_del = st.selectbox("Selecione um item para apagar:", 
+                              df['id'].tolist(), 
+                              format_func=lambda x: f"{df.loc[df['id']==x, 'data'].dt.strftime('%d/%m').values[0]} - {df.loc[df['id']==x, 'descricao'].values[0]} (R$ {df.loc[df['id']==x, 'valor'].values[0]})")
+        if st.button("🗑️ EXCLUIR DEFINITIVAMENTE"):
+            conn.client.table("lancamentos").delete().eq("id", id_del).execute()
+            st.cache_data.clear()
+            st.success("Item removido!")
+            time.sleep(1)
+            st.rerun()
+    else:
+        st.warning("Não existem lançamentos para excluir.")
