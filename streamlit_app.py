@@ -6,7 +6,13 @@ from datetime import date
 st.set_page_config(page_title="Financeiro Pro | Supabase", layout="wide")
 
 # Conexão com Supabase
-conn = st.connection("supabase", type=SupabaseConnection)
+# Teste de conexão direta (substitua temporariamente no GitHub)
+conn = st.connection(
+    "supabase",
+    type=SupabaseConnection,
+    url="https://oirdbzrgwmohqcmhlhas.supabase.co",
+    key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9pcmRienJnd21vaHFjbWhsaGFzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTg0NjgzOSwiZXhwIjoyMDg3NDIyODM5fQ.zVJh2FzRdMaMfj56mWSxhBmPJKvUKWQE6xUass4-yIM"
+)
 
 def carregar_dados():
     try:
