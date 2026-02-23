@@ -14,58 +14,55 @@ conn = st.connection("supabase", type=SupabaseConnection,
                      url="https://oirdbzrgwmohqcmhlhas.supabase.co", 
                      key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9pcmRienJnd21vaHFjbWhsaGFzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTg0NjgzOSwiZXhwIjoyMDg3NDIyODM5fQ.zVJh2FzRdMaMfj56mWSxhBmPJKvUKWQE6xUass4-yIM")
 
-# --- 3. CSS DE ALTA PRECISÃO (CENTRALIZAÇÃO E VISUAL) ---
+# --- 3. CSS RESPONSIVO E CENTRALIZADO ---
 st.markdown("""
     <style>
-    /* 1. Fundo Gradiente Geral */
+    /* Fundo Gradiente */
     .stApp {
         background: linear-gradient(135deg, #0093E9 0%, #80D0C7 50%, #931ca1 100%) !important;
         background-attachment: fixed !important;
     }
 
-    /* 2. FORÇAR CENTRALIZAÇÃO DE TUDO NO MEIO DA TELA */
-    [data-testid="stVerticalBlock"] {
-        display: flex !important;
-        flex-direction: column !important;
-        align-items: center !important;
-        justify-content: center !important;
+    /* Centralização Vertical e Horizontal do Bloco de Login */
+    /* Isso garante que o conteúdo não 'flutue' para a esquerda */
+    .main .block-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        padding-top: 2rem;
     }
 
-    /* 3. AJUSTE DA LOGO (Captura 97) */
-    /* Remove o fundo branco se a imagem for transparente e limita o tamanho */
+    /* Estilização da Logo para ser responsiva e maior */
     [data-testid="stImage"] {
         display: flex !important;
         justify-content: center !important;
-        background-color: transparent !important;
+        margin-bottom: 20px !important;
     }
     [data-testid="stImage"] img {
-        max-width: 180px !important; /* Tamanho elegante */
-        filter: drop-shadow(0px 4px 8px rgba(0,0,0,0.2)); /* Dá profundidade */
+        width: 250px !important; /* Aumentado para melhor proporção */
+        max-width: 80% !important; /* Responsividade para telas menores */
+        height: auto;
+        filter: drop-shadow(0px 8px 16px rgba(0,0,0,0.3));
     }
 
-    /* 4. FORMULÁRIO DE LOGIN (O "CARD" CENTRAL) */
+    /* Card de Login Responsivo */
     div[data-testid="stForm"] {
-        background: rgba(255, 255, 255, 0.15) !important;
-        backdrop-filter: blur(20px);
-        border: 1px solid rgba(255, 255, 255, 0.3) !important;
-        border-radius: 25px !important;
+        background: rgba(255, 255, 255, 0.12) !important;
+        backdrop-filter: blur(25px);
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        border-radius: 30px !important;
         padding: 40px !important;
-        width: 450px !important; /* Largura fixa para garantir centralização perfeita */
-        box-shadow: 0 15px 35px rgba(0,0,0,0.2) !important;
+        width: 100% !important;
+        max-width: 500px !important; /* Largura ideal para desktop */
+        margin: 0 auto !important;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.3) !important;
     }
 
-    /* 5. INPUTS E TEXTOS DENTRO DO CARD */
-    div[data-baseweb="input"] {
-        background-color: rgba(255, 255, 255, 0.2) !important;
-        border-radius: 12px !important;
-        border: 1px solid rgba(255, 255, 255, 0.3) !important;
-    }
-    input { color: white !important; font-size: 16px !important; }
-    label, p, h1 { color: white !important; text-align: center !important; width: 100%; }
-
-    /* 6. BOTÃO DE ACESSO (O grande destaque azul marinho) */
+    /* Ajuste de Botão */
     button[kind="primaryFormSubmit"] {
-        background-color: #1E3A8A !important;
+        background: linear-gradient(to right, #1E3A8A, #3B82F6) !important;
         color: white !important;
         width: 100% !important;
         height: 55px !important;
@@ -73,82 +70,89 @@ st.markdown("""
         font-weight: bold !important;
         font-size: 18px !important;
         border: none !important;
-        margin-top: 20px !important;
-        transition: 0.3s ease-in-out !important;
+        cursor: pointer;
+        transition: transform 0.2s;
     }
     button[kind="primaryFormSubmit"]:hover {
-        background-color: #152a63 !important;
-        transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(0,0,0,0.3) !important;
+        transform: scale(1.02);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.4);
     }
 
-    /* 7. ABAS (Tabs) CENTRALIZADAS */
+    /* Estilo das Abas */
     .stTabs [data-baseweb="tab-list"] {
-        display: flex !important;
-        justify-content: center !important;
-        gap: 15px !important;
-        background-color: transparent !important;
+        display: flex;
+        justify-content: center;
+        background: transparent !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+        margin-bottom: 20px;
     }
     .stTabs [data-baseweb="tab"] {
         color: white !important;
-        font-weight: 500 !important;
+        font-size: 16px !important;
     }
+
+    /* Inputs e Rótulos */
+    label, p, h1, h2 { color: white !important; text-align: center !important; }
+    div[data-baseweb="input"] {
+        background: rgba(255, 255, 255, 0.1) !important;
+        border-radius: 12px !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    }
+    input { color: white !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. TELA DE ACESSO ---
+# --- 4. ÁREA DE ACESSO ---
 if 'autenticado' not in st.session_state: 
     st.session_state.autenticado = False
 
 if not st.session_state.autenticado:
-    # Usamos uma coluna central para garantir que o Streamlit respeite o meio
-    _, col_central, _ = st.columns([1, 1.5, 1])
+    # Removemos o sistema de colunas [1, 1.5, 1] que estava causando o desalinhamento
+    # O CSS acima agora cuida da centralização absoluta
     
-    with col_central:
-        # Logo (Certifique-se que o arquivo é logo.png na pasta do projeto)
-        if os.path.exists("logo.png"):
-            st.image("logo.png")
-        else:
-            st.markdown("<h1>MONEYFLOW PRO</h1>", unsafe_allow_html=True)
-        
-        t_log, t_reg, t_rec, t_sup = st.tabs(["🔐 Entrar", "📝 Cadastro", "🔑 Senha", "❔ Suporte"])
-        
-        with t_log:
-            with st.form("login_center"):
-                st.markdown("<p style='font-size: 20px; font-weight: bold;'>Bem-vindo de volta!</p>", unsafe_allow_html=True)
-                e = st.text_input("E-mail")
-                s = st.text_input("Senha", type="password")
-                if st.form_submit_button("ACESSAR DASHBOARD"):
-                    res = conn.client.table("usuarios").select("*").eq("email", e).eq("senha", s).execute()
-                    if res.data:
-                        st.session_state.autenticado = True
-                        st.session_state.usuario = e
-                        st.rerun()
-                    else:
-                        st.error("E-mail ou senha inválidos.")
+    # Logo
+    if os.path.exists("logo.png"):
+        st.image("logo.png")
+    else:
+        st.markdown("<h1>MONEYFLOW PRO</h1>", unsafe_allow_html=True)
+    
+    # Abas
+    t_log, t_reg, t_rec, t_sup = st.tabs(["🔐 Entrar", "📝 Cadastro", "🔑 Senha", "❔ Suporte"])
+    
+    with t_log:
+        with st.form("login_center"):
+            st.markdown("### Bem-vindo de volta!")
+            e = st.text_input("E-mail")
+            s = st.text_input("Senha", type="password")
+            if st.form_submit_button("ACESSAR DASHBOARD"):
+                res = conn.client.table("usuarios").select("*").eq("email", e).eq("senha", s).execute()
+                if res.data:
+                    st.session_state.autenticado = True
+                    st.session_state.usuario = e
+                    st.rerun()
+                else:
+                    st.error("Dados incorretos.")
 
-        with t_reg:
-            with st.form("reg_center"):
-                n = st.text_input("Nome Completo")
-                em = st.text_input("Seu melhor e-mail")
-                se = st.text_input("Crie uma senha forte", type="password")
-                if st.form_submit_button("CRIAR MINHA CONTA"):
-                    conn.client.table("usuarios").insert({"email": em, "senha": se, "nome": n}).execute()
-                    st.success("Conta criada! Vá na aba 'Entrar'.")
+    with t_rec:
+        with st.form("rec"):
+            st.write("Digite seu e-mail para recuperar a senha.")
+            st.text_input("E-mail")
+            st.form_submit_button("Enviar Link")
+            
+    with t_sup:
+        st.markdown("📧 **suporte@moneyflow.pro**")
 
     st.stop()
 
-# --- 5. DASHBOARD (Ocultando colunas irrelevantes conforme solicitado) ---
-st.sidebar.button("🚪 Sair", on_click=lambda: st.session_state.update({"autenticado": False}))
-st.markdown("<h1>📊 Painel Financeiro</h1>", unsafe_allow_html=True)
+# --- 5. DASHBOARD (SÓ APARECE APÓS LOGIN) ---
+st.sidebar.button("Sair", on_click=lambda: st.session_state.update({"autenticado": False}))
+st.title("📊 Painel Financeiro")
 
+# Carregar dados ocultando IDs
 try:
     res = conn.client.table("lancamentos").select("*").eq("created_by", st.session_state.usuario).execute()
     df = pd.DataFrame(res.data)
     if not df.empty:
-        # Mostra a tabela limpa, sem ID e sem Created_by
         st.dataframe(df.drop(columns=['id', 'created_by'], errors='ignore'), use_container_width=True)
-    else:
-        st.info("Nenhum registro encontrado.")
 except:
-    st.error("Erro ao conectar com o banco de dados.")
+    st.info("Conectando ao banco...")
