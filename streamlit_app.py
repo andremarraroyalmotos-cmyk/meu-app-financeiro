@@ -109,4 +109,4 @@ def carregar_dados():
     df_b = pd.DataFrame(res.data)
     if not df_b.empty:
         df_b['data'] = pd.to_datetime(df_b['data'])
-        df_b['valor
+        df_b['valor']
