@@ -183,4 +183,4 @@ if aba == "📊 Dashboard":
         c1, c2, c3 = st.columns(3)
         c1.metric("Ganhos", f"R$ {r:,.2f}")
         c2.metric("Gastos", f"R$ {d:,.2f}")
-        c3.metric("Saldo", f"
+        c3.metric("Saldo", f")
