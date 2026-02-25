@@ -18,48 +18,64 @@ if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if 'usuario' not in st.session_state: st.session_state.usuario = None
 if 'nome_exibicao' not in st.session_state: st.session_state.nome_exibicao = "Usuário"
 
-# --- 4. CSS: DESIGN FIDELIDADE TOTAL (GLASSMORPHISM) ---
+# --- 4. CSS: DESIGN FIDELIDADE TOTAL + BOTÕES VISÍVEIS ---
 st.markdown("""
     <style>
+    /* Fundo Gradiente Principal */
     .stApp {
         background: linear-gradient(135deg, #0093E9 0%, #80D0C7 50%, #931ca1 100%) !important;
         background-attachment: fixed;
     }
     header {visibility: hidden;}
 
-    /* Sidebar Glass */
-    [data-testid="stSidebar"] {
-        background-color: rgba(255, 255, 255, 0.05) !important;
-        backdrop-filter: blur(12px);
-    }
-
     /* Containers de Vidro */
-    [data-testid="stForm"], div.stMetric, .stTabs, .stDataFrame, .stTable {
+    [data-testid="stForm"], div.stMetric, .stTabs, .stDataFrame {
         background: rgba(255, 255, 255, 0.1) !important;
         backdrop-filter: blur(15px);
         border-radius: 20px !important;
         border: 1px solid rgba(255, 255, 255, 0.2) !important;
         padding: 20px !important;
-        color: white !important;
     }
 
-    /* BOTÃO SAIR AZUL MARINHO */
+    /* ESTILO GLOBAL PARA BOTÕES DE AÇÃO (Salvar, Adicionar, Acessar) */
+    /* Isso garante que eles não fiquem transparentes */
+    .stButton button, .stFormSubmitButton button {
+        background-color: rgba(255, 255, 255, 0.9) !important; /* Fundo sólido quase branco */
+        color: #1E3A8A !important; /* Texto em Azul Marinho */
+        border-radius: 10px !important;
+        border: none !important;
+        font-weight: bold !important;
+        height: 45px !important;
+        width: 100% !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
+        transition: all 0.3s ease !important;
+    }
+
+    /* Efeito de Hover para os botões de ação */
+    .stButton button:hover, .stFormSubmitButton button:hover {
+        background-color: #1E3A8A !important; /* Inverte para Azul Marinho no hover */
+        color: white !important;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 15px rgba(0,0,0,0.2) !important;
+    }
+
+    /* BOTÃO SAIR (Diferenciado na Sidebar) */
     section[data-testid="stSidebar"] .stButton button {
         background-color: #1E3A8A !important;
         color: white !important;
-        border-radius: 12px !important;
-        border: none !important;
-        width: 100% !important;
-        font-weight: bold !important;
-        height: 48px !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.4) !important;
         margin-top: 20px;
     }
+    
+    section[data-testid="stSidebar"] .stButton button:hover {
+        background-color: #0d1b42 !important;
+    }
 
-    /* Textos, Labels e Inputs */
+    /* Ajuste de Textos e Labels */
     h1, h2, h3, label, [data-testid="stMetricValue"], [data-testid="stSidebar"] p {
         color: white !important;
     }
+    
+    /* Inputs Brancos para facilitar leitura */
     input, select, textarea {
         background-color: white !important;
         color: #1E3A8A !important;
