@@ -18,25 +18,32 @@ if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if 'usuario' not in st.session_state: st.session_state.usuario = None
 if 'nome_exibicao' not in st.session_state: st.session_state.nome_exibicao = "Usuário"
 
-# --- 4. CSS: CORREÇÃO DA SIDEBAR + BOTÕES VISÍVEIS ---
+# --- 4. CSS: CORREÇÃO DEFINITIVA DE CONTRASTE E CORES ---
 st.markdown("""
     <style>
-    /* 1. FUNDO E GRADIENTE */
+    /* 1. FUNDO E GRADIENTE PRINCIPAL */
     .stApp {
         background: linear-gradient(135deg, #0093E9 0%, #80D0C7 50%, #931ca1 100%) !important;
         background-attachment: fixed;
     }
     header {visibility: hidden;}
 
-    /* 2. CORREÇÃO DA SIDEBAR (Retornando ao Azul Sólido das fotos) */
+    /* 2. SIDEBAR AZUL MARINHO (CONFORME IMAGEM 105) */
     [data-testid="stSidebar"] {
-        background-color: #1E3A8A !important; /* Azul Marinho Idêntico à Imagem 100 */
+        background-color: #1E3A8A !important;
         border-right: 1px solid rgba(255, 255, 255, 0.1);
     }
     
-    /* Garantir que o texto da sidebar seja branco */
-    [data-testid="stSidebar"] .stMarkdown p, [data-testid="stSidebar"] label {
+    /* CORREÇÃO DO TEXTO CINZA: Dashboard, Novo Lançamento e Gerenciar */
+    [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label {
         color: white !important;
+        font-weight: 500 !important;
+        font-size: 1.1rem !important;
+    }
+
+    /* Cor da bolinha de seleção (Radio) */
+    [data-testid="stSidebar"] .stRadio div[role="radiogroup"] div[data-checked="true"] > div {
+        background-color: white !important;
     }
 
     /* 3. CONTAINERS GLASSMORPISM NO CONTEÚDO */
@@ -48,10 +55,10 @@ st.markdown("""
         padding: 20px !important;
     }
 
-    /* 4. BOTÕES DE FORMULÁRIO (Sólidos e Visíveis) */
+    /* 4. BOTÕES DE FORMULÁRIO (Sólidos e Brancos) */
     .stButton button, .stFormSubmitButton button {
-        background-color: #FFFFFF !important; /* Branco Sólido */
-        color: #1E3A8A !important; /* Texto Azul */
+        background-color: #FFFFFF !important;
+        color: #1E3A8A !important;
         border-radius: 10px !important;
         border: 1px solid #1E3A8A !important;
         font-weight: bold !important;
@@ -60,19 +67,16 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
     }
 
-    /* Hover dos botões de formulário */
     .stButton button:hover, .stFormSubmitButton button:hover {
         background-color: #f0f2f6 !important;
-        border: 1px solid #1E3A8A !important;
-        color: #1E3A8A !important;
     }
 
-    /* 5. BOTÃO SAIR (Especial para a Sidebar) */
+    /* 5. BOTÃO SAIR (Outline Branco na Sidebar) */
     section[data-testid="stSidebar"] .stButton button {
-        background-color: rgba(255, 255, 255, 0.2) !important;
+        background-color: rgba(255, 255, 255, 0.15) !important;
         color: white !important;
         border: 1px solid white !important;
-        margin-top: 20px;
+        margin-top: 30px;
     }
     
     section[data-testid="stSidebar"] .stButton button:hover {
@@ -81,11 +85,11 @@ st.markdown("""
     }
 
     /* 6. TEXTOS GERAIS */
-    h1, h2, h3, label, [data-testid="stMetricValue"] {
+    h1, h2, h3, label, [data-testid="stMetricValue"], [data-testid="stSidebar"] p {
         color: white !important;
     }
     
-    /* Inputs Brancos */
+    /* Inputs Brancos para facilitar leitura */
     input, select, textarea {
         background-color: white !important;
         color: #1E3A8A !important;
