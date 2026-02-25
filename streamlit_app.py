@@ -4,7 +4,7 @@ import pandas as pd
 import plotly.express as px
 from datetime import date
 import time
-import os  #
+import os
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="MoneyFlow Pro", layout="wide", page_icon="💰")
@@ -19,35 +19,30 @@ if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if 'usuario' not in st.session_state: st.session_state.usuario = None
 if 'nome_exibicao' not in st.session_state: st.session_state.nome_exibicao = "Usuário"
 
-# --- 4. CSS: CORREÇÃO DEFINITIVA DE CONTRASTE E CORES ---
+# --- 4. CSS: DESIGN E CORES ---
 st.markdown("""
     <style>
-    /* 1. FUNDO E GRADIENTE PRINCIPAL */
     .stApp {
         background: linear-gradient(135deg, #0093E9 0%, #80D0C7 50%, #931ca1 100%) !important;
         background-attachment: fixed;
     }
     header {visibility: hidden;}
 
-    /* 2. SIDEBAR AZUL MARINHO (CONFORME IMAGEM 105) */
     [data-testid="stSidebar"] {
         background-color: #1E3A8A !important;
         border-right: 1px solid rgba(255, 255, 255, 0.1);
     }
     
-    /* CORREÇÃO DO TEXTO CINZA: Dashboard, Novo Lançamento e Gerenciar */
     [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label {
         color: white !important;
         font-weight: 500 !important;
         font-size: 1.1rem !important;
     }
 
-    /* Cor da bolinha de seleção (Radio) */
     [data-testid="stSidebar"] .stRadio div[role="radiogroup"] div[data-checked="true"] > div {
         background-color: white !important;
     }
 
-    /* 3. CONTAINERS GLASSMORPISM NO CONTEÚDO */
     [data-testid="stForm"], div.stMetric, .stTabs, .stDataFrame {
         background: rgba(255, 255, 255, 0.1) !important;
         backdrop-filter: blur(15px);
@@ -56,7 +51,6 @@ st.markdown("""
         padding: 20px !important;
     }
 
-    /* 4. BOTÕES DE FORMULÁRIO (Sólidos e Brancos) */
     .stButton button, .stFormSubmitButton button {
         background-color: #FFFFFF !important;
         color: #1E3A8A !important;
@@ -68,29 +62,17 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
     }
 
-    .stButton button:hover, .stFormSubmitButton button:hover {
-        background-color: #f0f2f6 !important;
-    }
-
-    /* 5. BOTÃO SAIR (Outline Branco na Sidebar) */
     section[data-testid="stSidebar"] .stButton button {
         background-color: rgba(255, 255, 255, 0.15) !important;
         color: white !important;
         border: 1px solid white !important;
-        margin-top: 30px;
-    }
-    
-    section[data-testid="stSidebar"] .stButton button:hover {
-        background-color: white !important;
-        color: #1E3A8A !important;
+        margin-top: 10px;
     }
 
-    /* 6. TEXTOS GERAIS */
     h1, h2, h3, label, [data-testid="stMetricValue"], [data-testid="stSidebar"] p {
         color: white !important;
     }
     
-    /* Inputs Brancos para facilitar leitura */
     input, select, textarea {
         background-color: white !important;
         color: #1E3A8A !important;
@@ -98,38 +80,22 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 5. SIDEBAR UNIFICADA (LOGO + MENU) ---
-
-# Espaçamento e Centralização da Logo (Sempre visível)
-st.sidebar.markdown("<br>", unsafe_allow_html=True) 
-col_logo_1, col_logo_2, col_logo_3 = st.sidebar.columns([1, 4, 1])
-
-with col_logo_2:
-    logo_path = "logo.png" 
+# --- 5. SIDEBAR: LOGO (SEMPRE NO TOPO) ---
+st.sidebar.markdown("<br>", unsafe_allow_html=True)
+col_l1, col_l2, col_l3 = st.sidebar.columns([1, 4, 1])
+with col_l2:
+    logo_path = "logo.png"
     if os.path.exists(logo_path):
         st.image(logo_path, use_container_width=True)
     else:
         st.markdown("<h2 style='text-align: center; color: white;'>💰</h2>", unsafe_allow_html=True)
 
-st.sidebar.markdown("<hr style='margin: 10px 0; border-color: rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
+st.sidebar.markdown("<hr style='margin: 15px 0; border-color: rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
 
-# Lógica de exibição da Sidebar baseada no login
-if st.session_state.autenticado:
-    st.sidebar.markdown(f"<p style='text-align: center; color: white; font-size: 1.1em;'>Olá, <b>{st.session_state.nome_exibicao}</b></p>", unsafe_allow_html=True)
-    
-    # Menu de Navegação
-    aba = st.sidebar.radio("Navegação", ["📊 Dashboard", "➕ Novo Lançamento", "⚙️ Gerenciar"])
-    
-    # Botão Sair
-    st.sidebar.markdown("<br>", unsafe_allow_html=True)
-    if st.sidebar.button("🚪 SAIR DO SISTEMA"):
-        st.session_state.autenticado = False
-        st.rerun()
-else:
-    st.sidebar.info("Aguardando login no portal...")
-
-# --- 6. TELA DE LOGIN ---
+# --- 6. LOGICA DE ACESSO ---
 if not st.session_state.autenticado:
+    st.sidebar.info("Aguardando login no portal...")
+    
     _, col_central, _ = st.columns([1, 1.8, 1])
     with col_central:
         st.markdown("<h1 style='text-align: center; font-size: 3.5em;'>MONEYFLOW</h1>", unsafe_allow_html=True)
@@ -148,7 +114,7 @@ if not st.session_state.autenticado:
                         st.session_state.usuario = res.data[0]['email']
                         st.session_state.nome_exibicao = res.data[0]['nome']
                         st.rerun()
-                    else: 
+                    else:
                         st.error("Login inválido.")
         
         with t_reg:
@@ -169,7 +135,15 @@ if not st.session_state.autenticado:
             st.write("Dúvidas? Entre em contato: suporte@moneyflow.pro")
     st.stop()
 
-# --- 7. CARREGAMENTO DE DADOS (SÓ EXECUTA SE LOGADO) ---
+# --- 7. MENU E NOME (SÓ APARECEM APÓS LOGIN) ---
+st.sidebar.markdown(f"<p style='text-align: center;'>Olá, <b>{st.session_state.nome_exibicao}</b></p>", unsafe_allow_html=True)
+aba = st.sidebar.radio("Navegação", ["📊 Dashboard", "➕ Novo Lançamento", "⚙️ Gerenciar"])
+
+if st.sidebar.button("🚪 SAIR DO SISTEMA"):
+    st.session_state.autenticado = False
+    st.rerun()
+
+# --- 8. FUNÇÕES DE DADOS ---
 @st.cache_data(ttl=5)
 def carregar_dados():
     try:
@@ -191,7 +165,7 @@ df_raw = carregar_dados()
 tipos_disp = ["Receita", "Despesa", "Investimento"]
 cats_disp = carregar_opcoes("categoria") or ["Salário", "Moradia", "Lazer", "Alimentação", "Transporte"]
 
-# --- 8. RENDERIZAÇÃO DAS ABAS ---
+# --- 9. RENDERIZAÇÃO DAS ABAS ---
 
 if aba == "📊 Dashboard":
     st.markdown("<h1>📊 Dashboard</h1>", unsafe_allow_html=True)
