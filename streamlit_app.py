@@ -43,7 +43,7 @@ st.markdown("""
         width: 100%;
     }
 
-    /* BOTÕES COM TEXTO AZUL MARINHO SÓLIDO */
+    /* BOTÕES: TEXTO AZUL MARINHO SÓLIDO */
     div.stButton > button, div.stFormSubmitButton > button {
         background-color: #FFFFFF !important;
         border: 1px solid #FFFFFF !important;
@@ -71,8 +71,6 @@ if not st.session_state.autenticado:
     _, col_central, _ = st.columns([1, 1.8, 1])
     with col_central:
         st.markdown('<div class="login-box">', unsafe_allow_html=True)
-        
-        # LOGO RESTAURADA
         l1, l2, l3 = st.columns([0.6, 1, 0.6])
         with l2:
             if os.path.exists("logo.png"):
@@ -91,8 +89,7 @@ if not st.session_state.autenticado:
                 if st.form_submit_button("ACESSAR DASHBOARD"):
                     res = conn.client.table("usuarios").select("*").eq("email", e).eq("senha", s).execute()
                     if res.data:
-                        st.session_state.autenticado = True
-                        st.session_state.usuario = res.data[0]['email']
+                        st.session_state.autenticado, st.session_state.usuario = True, res.data[0]['email']
                         st.session_state.nome_exibicao = res.data[0]['nome']
                         st.rerun()
                     else: st.error("Erro no login.")
@@ -103,8 +100,8 @@ if not st.session_state.autenticado:
                     conn.client.table("usuarios").insert({"email": em, "senha": se, "nome": n}).execute()
                     st.success("Sucesso!")
         with t_rec:
-            with st.form("rec_form"):
-                st.text_input("E-mail para recuperação")
+            with st.form("rec"):
+                st.text_input("E-mail")
                 st.form_submit_button("ENVIAR LINK")
         with t_sup:
             st.markdown("<p style='text-align:center;'>suporte@moneyflow.pro</p>", unsafe_allow_html=True)
@@ -185,15 +182,12 @@ elif aba == "⚙️ Gerenciar":
             with st.form("f_t"):
                 nt = st.text_input("Novo Tipo")
                 if st.form_submit_button("ADD TIPO"):
-                    try:
-                        conn.client.table("configuracoes").insert({"chave": "tipo", "valor": nt, "created_by": st.session_state.usuario}).execute()
-                        st.success("Adicionado!"); st.rerun()
-                    except: st.error("Erro no banco. Execute o comando SQL no Supabase.")
+                    # Salvamos e forçamos o sucesso, já que você confirmou que está adicionando
+                    conn.client.table("configuracoes").insert({"chave": "tipo", "valor": nt, "created_by": st.session_state.usuario}).execute()
+                    st.success(f"Tipo '{nt}' adicionado!"); time.sleep(1); st.rerun()
         with c2:
             with st.form("f_c"):
                 nc = st.text_input("Nova Categoria")
                 if st.form_submit_button("ADD CATEGORIA"):
-                    try:
-                        conn.client.table("configuracoes").insert({"chave": "categoria", "valor": nc, "created_by": st.session_state.usuario}).execute()
-                        st.success("Adicionado!"); st.rerun()
-                    except: st.error("Erro no banco.")
+                    conn.client.table("configuracoes").insert({"chave": "categoria", "valor": nc, "created_by": st.session_state.usuario}).execute()
+                    st.success(f"Categoria '{nc}' adicionada!"); time.sleep(1); st.rerun()
