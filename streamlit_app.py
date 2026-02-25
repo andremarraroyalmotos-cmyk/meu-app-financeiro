@@ -97,28 +97,38 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- ADICIONE ESTE BLOCO LOGO APÓS O CSS E ANTES DO MENU DE NAVEGAÇÃO ---
+# --- AJUSTE DA SIDEBAR COM LOGO CENTRALIZADA E TRAVA DE LOGIN ---
 
-# Tentativa de carregar a logo
-import os
+# 1. Espaçamento e Centralização da Logo
+st.sidebar.markdown("<br>", unsafe_allow_html=True) # Espaço no topo
+col_logo_1, col_logo_2, col_logo_3 = st.sidebar.columns([1, 4, 1])
 
-# Caminho da sua logo (certifique-se de que o arquivo está na mesma pasta do script)
-logo_path = "logo.png" 
+with col_logo_2:
+    logo_path = "logo.png" 
+    if os.path.exists(logo_path):
+        st.image(logo_path, use_container_width=True)
+    else:
+        # Texto substituto centralizado caso a imagem suma
+        st.markdown("<h2 style='text-align: center; color: white;'>💰</h2>", unsafe_allow_html=True)
 
-if os.path.exists(logo_path):
-    st.sidebar.image(logo_path, use_container_width=True)
+st.sidebar.markdown("<hr style='margin: 10px 0; border-color: rgba(255,255,255,0.1);'>", unsafe_allow_html=True)
+
+# 2. Só mostra o Nome e o Menu se estiver autenticado
+if st.session_state.autenticado:
+    st.sidebar.markdown(f"<p style='text-align: center; color: white; font-size: 1.1em;'>Olá, <b>{st.session_state.nome_exibicao}</b></p>", unsafe_allow_html=True)
+    
+    # Menu de Navegação (Agora com as cores corrigidas para branco)
+    aba = st.sidebar.radio("Navegação", ["📊 Dashboard", "➕ Novo Lançamento", "⚙️ Gerenciar"])
+    
+    # Botão Sair
+    st.sidebar.markdown("<br>", unsafe_allow_html=True)
+    if st.sidebar.button("🚪 SAIR"):
+        st.session_state.autenticado = False
+        st.rerun()
 else:
-    # Caso a imagem não exista, ele coloca um título estilizado no lugar
-    st.sidebar.markdown("""
-        <div style='text-align: center; padding: 10px; border: 2px solid rgba(255,255,255,0.3); border-radius: 15px; margin-bottom: 20px;'>
-            <h2 style='color: white; margin: 0;'>💰 MONEYFLOW</h2>
-            <small style='color: rgba(255,255,255,0.7);'>PRO VERSION</small>
-        </div>
-    """, unsafe_allow_html=True)
-
-st.sidebar.markdown(f"**Olá, {st.session_state.nome_exibicao}**")
-# ... restante do seu código (radio botões, etc)
-
+    # Mensagem caso não esteja logado (Opcional)
+    st.sidebar.info("Aguardando login...")
+  
 
 # --- 5. TELA DE LOGIN (ESTRUTURA IMAGEM 99) ---
 if not st.session_state.autenticado:
