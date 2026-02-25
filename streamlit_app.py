@@ -19,7 +19,7 @@ if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if 'usuario' not in st.session_state: st.session_state.usuario = None
 if 'nome_exibicao' not in st.session_state: st.session_state.nome_exibicao = "Usuário"
 
-# --- 4. CSS: AJUSTES DEFINITIVOS ---
+# --- 4. CSS: CORREÇÃO TOTAL DE TRANSPARÊNCIA E ALINHAMENTO ---
 st.markdown("""
     <style>
     /* FUNDO PRINCIPAL */
@@ -42,32 +42,41 @@ st.markdown("""
         padding: 20px !important;
     }
 
-    /* CENTRALIZAÇÃO DAS ABAS APENAS NO LOGIN */
+    /* CENTRALIZAÇÃO DAS ABAS NO LOGIN */
     .login-box .stTabs [data-baseweb="tab-list"] {
         display: flex;
         justify-content: center;
         width: 100%;
     }
 
-    /* COR DOS BOTÕES (BRANCO COM TEXTO AZUL) */
+    /* FIXAÇÃO DA COR DOS BOTÕES (REMOVENDO TRANSPARÊNCIA) */
     div.stButton > button, div.stFormSubmitButton > button {
         background-color: #FFFFFF !important;
+        background-image: none !important; /* Remove gradientes do sistema */
         color: #1E3A8A !important;
+        opacity: 1 !important; /* Força opacidade máxima */
         border: 1px solid #FFFFFF !important;
         border-radius: 10px !important;
         font-weight: bold !important;
         height: 45px !important;
         width: 100% !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2) !important;
     }
     
-    div.stButton > button:hover { background-color: #f0f2f6 !important; }
+    div.stButton > button:hover { 
+        background-color: #f0f2f6 !important; 
+        color: #1E3A8A !important;
+    }
 
     /* TEXTOS E INPUTS */
     h1, h2, h3, label, p, [data-testid="stMetricValue"] { color: white !important; }
-    input, select, textarea { background-color: white !important; color: #1E3A8A !important; }
+    input, select, textarea { 
+        background-color: white !important; 
+        color: #1E3A8A !important; 
+        opacity: 1 !important;
+    }
     
-    /* AJUSTE DE ESPAÇAMENTO DO CONTEÚDO */
+    /* AJUSTE DE ESPAÇAMENTO */
     .main .block-container { padding-top: 2rem !important; }
     </style>
     """, unsafe_allow_html=True)
@@ -76,14 +85,12 @@ st.markdown("""
 if not st.session_state.autenticado:
     st.markdown("<style>[data-testid='stSidebar'] {display: none;}</style>", unsafe_allow_html=True)
     
-    # Container invisível para centralizar o conteúdo
     _, col_central, _ = st.columns([1, 1.8, 1])
     
     with col_central:
-        # Usamos uma "div" manual para aplicar o estilo de centralização das abas via CSS
         st.markdown('<div class="login-box">', unsafe_allow_html=True)
         
-        # LOGO
+        # LOGO CENTRALIZADA
         l1, l2, l3 = st.columns([0.6, 1, 0.6])
         with l2:
             if os.path.exists("logo.png"):
@@ -119,12 +126,12 @@ if not st.session_state.autenticado:
                     st.success("Cadastro realizado!")
         
         with t_rec:
-            st.write("Recuperação de Senha")
-            st.text_input("Digite seu e-mail")
-            st.button("SOLICITAR NOVA SENHA", disabled=True)
+            st.markdown("<p style='text-align: center;'>Recuperação de Acesso</p>", unsafe_allow_html=True)
+            st.text_input("E-mail cadastrado")
+            st.form_submit_button("ENVIAR LINK")
             
         with t_sup:
-            st.write("Dúvidas: suporte@moneyflow.pro")
+            st.markdown("<p style='text-align: center;'>Contato: suporte@moneyflow.pro</p>", unsafe_allow_html=True)
         
         st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
@@ -137,7 +144,7 @@ if st.sidebar.button("🚪 SAIR DO SISTEMA"):
     st.session_state.autenticado = False
     st.rerun()
 
-# --- 7. CARREGAMENTO DE DADOS ---
+# --- 7. CARREGAMENTO DE DADOS (LOGADO) ---
 @st.cache_data(ttl=5)
 def carregar_dados():
     try:
@@ -149,15 +156,7 @@ def carregar_dados():
         return df
     except: return pd.DataFrame()
 
-def carregar_opcoes(chave):
-    try:
-        res = conn.client.table("configuracoes").select("valor").eq("created_by", st.session_state.usuario).eq("chave", chave).execute()
-        return [item['valor'] for item in res.data]
-    except: return []
-
 df_raw = carregar_dados()
-tipos_disp = list(set(["Receita", "Despesa", "Investimento"] + carregar_opcoes("tipo")))
-cats_disp = list(set(["Salário", "Moradia", "Lazer", "Alimentação", "Transporte"] + carregar_opcoes("categoria")))
 
 # --- 8. DASHBOARD ---
 if aba == "📊 Dashboard":
@@ -174,16 +173,10 @@ if aba == "📊 Dashboard":
         m2.metric("Despesas", f"R$ {d:,.2f}")
         m3.metric("Saldo", f"R$ {r-d:,.2f}")
         
-        col1, col2 = st.columns(2)
-        with col1:
-            st.plotly_chart(px.pie(df_f, values='valor', names='categoria', hole=0.5, title="Gastos").update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", showlegend=False), use_container_width=True)
-        with col2:
-            st.plotly_chart(px.line(df_f.groupby('data')['valor'].sum().reset_index(), x='data', y='valor', title="Fluxo").update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white"), use_container_width=True)
-        
-        st.markdown("### 📝 Histórico Detalhado")
+        st.markdown("### 📝 Histórico")
         st.dataframe(df_f[['data', 'descricao', 'categoria', 'tipo', 'valor']].sort_values('data', ascending=False), use_container_width=True)
     else:
-        st.info("Nenhum dado para exibir.")
+        st.info("Aguardando lançamentos...")
 
 # --- 9. NOVO LANÇAMENTO ---
 elif aba == "➕ Novo Lançamento":
@@ -191,47 +184,32 @@ elif aba == "➕ Novo Lançamento":
     with st.form("form_add"):
         c_a, c_b = st.columns(2)
         with c_a:
-            dt = st.date_input("Data", date.today(), format="DD/MM/YYYY")
-            ds = st.text_input("Descrição")
-            vl = st.number_input("Valor", min_value=0.0)
+            dt, ds, vl = st.date_input("Data"), st.text_input("Descrição"), st.number_input("Valor", min_value=0.0)
         with c_b:
-            tp = st.selectbox("Tipo", tipos_disp)
-            ct = st.selectbox("Categoria", cats_disp)
-            pr = st.number_input("Parcelas (Meses)", 1)
+            tp = st.selectbox("Tipo", ["Receita", "Despesa", "Investimento"])
+            ct = st.selectbox("Categoria", ["Salário", "Lazer", "Contas", "Outros"])
+            pr = st.number_input("Parcelas", 1)
         if st.form_submit_button("SALVAR"):
-            itens = [{"data": (pd.to_datetime(dt) + pd.DateOffset(months=i)).strftime('%Y-%m-%d'), "descricao": f"{ds} ({i+1}/{pr})" if pr > 1 else ds, "valor": float(vl/pr), "tipo": tp, "categoria": ct, "created_by": st.session_state.usuario} for i in range(int(pr))]
+            itens = [{"data": (pd.to_datetime(dt) + pd.DateOffset(months=i)).strftime('%Y-%m-%d'), 
+                      "descricao": f"{ds} ({i+1}/{pr})" if pr > 1 else ds, 
+                      "valor": float(vl/pr), "tipo": tp, "categoria": ct, 
+                      "created_by": st.session_state.usuario} for i in range(int(pr))]
             conn.client.table("lancamentos").insert(itens).execute()
             st.cache_data.clear()
-            st.success("Lançado com sucesso!")
+            st.success("Salvo!")
             st.rerun()
 
 # --- 10. GERENCIAR ---
 elif aba == "⚙️ Gerenciar":
     st.markdown("<h1>⚙️ Gerenciamento</h1>", unsafe_allow_html=True)
-    t1, t2 = st.tabs(["✏️ Editar / Excluir", "🛠️ Configurar Listas"])
+    t1, t2 = st.tabs(["✏️ Excluir Lançamentos", "🛠️ Configurar Listas"])
     
     with t1:
         if not df_raw.empty:
             df_raw['display'] = df_raw['data'].astype(str) + " - " + df_raw['descricao']
-            sel_id = st.selectbox("Selecione o item para excluir:", df_raw['id'].tolist(), format_func=lambda x: df_raw.loc[df_raw['id'] == x, 'display'].values[0])
+            sel_id = st.selectbox("Selecione para excluir:", df_raw['id'].tolist(), 
+                                  format_func=lambda x: df_raw.loc[df_raw['id'] == x, 'display'].values[0])
             if st.button("CONFIRMAR EXCLUSÃO"):
                 conn.client.table("lancamentos").delete().eq("id", sel_id).execute()
                 st.cache_data.clear()
                 st.rerun()
-        else:
-            st.info("Nenhum lançamento disponível para edição.")
-
-    with t2:
-        c_t, c_c = st.columns(2)
-        with c_t:
-            with st.form("t"):
-                nt = st.text_input("Novo Tipo")
-                if st.form_submit_button("ADICIONAR TIPO"):
-                    conn.client.table("configuracoes").insert({"chave": "tipo", "valor": nt, "created_by": st.session_state.usuario}).execute()
-                    st.rerun()
-        with c_c:
-            with st.form("c"):
-                nc = st.text_input("Nova Categoria")
-                if st.form_submit_button("ADICIONAR CATEGORIA"):
-                    conn.client.table("configuracoes").insert({"chave": "categoria", "valor": nc, "created_by": st.session_state.usuario}).execute()
-                    st.rerun()
