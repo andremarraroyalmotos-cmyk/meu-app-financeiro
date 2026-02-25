@@ -18,63 +18,51 @@ if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if 'usuario' not in st.session_state: st.session_state.usuario = None
 if 'nome_exibicao' not in st.session_state: st.session_state.nome_exibicao = "Usuário"
 
-# --- 4. CSS: RESTAURAÇÃO TOTAL DO VISUAL ---
+# --- 4. CSS: DESIGN GLASSMORPHISM & BOTÃO SAIR ---
 st.markdown("""
     <style>
-    /* Fundo Gradiente Principal */
     .stApp {
         background: linear-gradient(135deg, #0093E9 0%, #80D0C7 50%, #931ca1 100%) !important;
         background-attachment: fixed;
     }
-    
-    /* Remover cabeçalho padrão */
     header {visibility: hidden;}
 
-    /* SIDEBAR GLASS (Transparente) */
+    /* Sidebar Glass */
     [data-testid="stSidebar"] {
         background-color: rgba(255, 255, 255, 0.05) !important;
         backdrop-filter: blur(10px);
-        border-right: 1px solid rgba(255, 255, 255, 0.1);
     }
 
-    /* CARDS DE VIDRO (Métricas, Forms e Tabelas) */
-    [data-testid="stForm"], div.stMetric, .stTabs, .stDataFrame, .stTable {
+    /* Containers de Vidro */
+    [data-testid="stForm"], div.stMetric, .stTabs, .stDataFrame {
         background: rgba(255, 255, 255, 0.1) !important;
         backdrop-filter: blur(15px);
-        border-radius: 15px !important;
+        border-radius: 20px !important;
         border: 1px solid rgba(255, 255, 255, 0.2) !important;
         padding: 20px !important;
     }
 
-    /* BOTÃO SAIR (Azul Marinho conforme Imagem 101/102) */
+    /* BOTÃO SAIR AZUL MARINHO */
     section[data-testid="stSidebar"] .stButton button {
         background-color: #1E3A8A !important;
         color: white !important;
-        border-radius: 10px !important;
+        border-radius: 12px !important;
         border: none !important;
         width: 100% !important;
         font-weight: bold !important;
-        height: 45px !important;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.4) !important;
+        height: 48px !important;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.3) !important;
         margin-top: 20px;
     }
 
-    /* INPUTS (Ajuste para aparecerem bem no Glassmorphism) */
-    input, select, textarea, [data-baseweb="input"] {
-        background-color: rgba(255, 255, 255, 0.9) !important;
-        color: #1E3A8A !important;
-        border-radius: 8px !important;
-    }
-
-    /* TEXTOS */
+    /* Textos em Branco */
     h1, h2, h3, label, [data-testid="stMetricValue"], [data-testid="stSidebar"] p {
         color: white !important;
-        text-shadow: 1px 1px 2px rgba(0,0,0,0.2);
     }
-    
-    /* Ajuste para as abas (Tabs) */
-    .stTabs [data-baseweb="tab"] {
-        color: white !important;
+
+    /* Inputs e Seletores Claros */
+    input, select, textarea, [data-baseweb="select"] {
+        color: #1E3A8A !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -83,21 +71,16 @@ st.markdown("""
 if not st.session_state.autenticado:
     _, col_central, _ = st.columns([1, 1.8, 1])
     with col_central:
-        st.markdown("<h1 style='text-align: center; font-size: 3em; margin-bottom: 0;'>MONEYFLOW</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; margin-bottom: 2em;'>Smart Finance, Brighter Future</p>", unsafe_allow_html=True)
-        t_log, t_reg, t_sen, t_sup = st.tabs(["🔐 Entrar", "📝 Cadastro", "🔑 Senha", "❔ Suporte"])
-        with t_log:
-            with st.form("login_form"):
-                e_in = st.text_input("E-mail")
-                s_in = st.text_input("Senha", type="password")
-                if st.form_submit_button("ACESSAR"):
-                    res = conn.client.table("usuarios").select("*").eq("email", e_in).eq("senha", s_in).execute()
-                    if res.data:
-                        st.session_state.autenticado = True
-                        st.session_state.usuario = res.data[0]['email']
-                        st.session_state.nome_exibicao = res.data[0]['nome']
-                        st.rerun()
-                    else: st.error("E-mail ou senha incorretos.")
+        st.markdown("<h1 style='text-align: center;'>MONEYFLOW PRO</h1>", unsafe_allow_html=True)
+        with st.form("login"):
+            e = st.text_input("E-mail")
+            s = st.text_input("Senha", type="password")
+            if st.form_submit_button("ACESSAR"):
+                res = conn.client.table("usuarios").select("*").eq("email", e).eq("senha", s).execute()
+                if res.data:
+                    st.session_state.autenticado, st.session_state.usuario = True, res.data[0]['email']
+                    st.session_state.nome_exibicao = res.data[0]['nome']
+                    st.rerun()
     st.stop()
 
 # --- 6. FUNÇÕES DE DADOS ---
@@ -126,10 +109,10 @@ if aba == "📊 Dashboard":
     st.markdown("<h1>📊 Dashboard Geral</h1>", unsafe_allow_html=True)
     if not df_raw.empty:
         c1, c2 = st.columns(2)
-        d_ini = c1.date_input("Início", df_raw['data'].min(), format="DD/MM/YYYY")
-        d_fim = c2.date_input("Fim", date.today(), format="DD/MM/YYYY")
+        d_i = c1.date_input("Início", df_raw['data'].min(), format="DD/MM/YYYY")
+        d_f = c2.date_input("Fim", date.today(), format="DD/MM/YYYY")
         
-        df_f = df_raw[(df_raw['data'] >= d_ini) & (df_raw['data'] <= d_fim)].copy()
+        df_f = df_raw[(df_raw['data'] >= d_i) & (df_raw['data'] <= d_f)].copy()
         
         m1, m2, m3 = st.columns(3)
         r = df_f[df_f['tipo'] == 'Receita']['valor'].sum()
@@ -143,40 +126,46 @@ if aba == "📊 Dashboard":
             st.plotly_chart(px.pie(df_f, values='valor', names='categoria', hole=0.5, title="Gastos").update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", showlegend=False), use_container_width=True)
         with col2:
             st.plotly_chart(px.line(df_f.groupby('data')['valor'].sum().reset_index(), x='data', y='valor', title="Evolução").update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white"), use_container_width=True)
-        
-        st.dataframe(df_f[['data', 'descricao', 'categoria', 'tipo', 'valor']].sort_values('data', ascending=False), use_container_width=True)
+    else:
+        st.info("Nenhum dado encontrado.")
 
-# --- ABA 2: LANÇAMENTO ---
+# --- ABA 2: NOVO LANÇAMENTO (CAMPO TIPO ADICIONADO) ---
 elif aba == "➕ Novo Lançamento":
-    st.markdown("<h1>➕ Novo Lançamento</h1>", unsafe_allow_html=True)
+    st.markdown("<h1>➕ Novo Registro</h1>", unsafe_allow_html=True)
     with st.form("add"):
         c1, c2 = st.columns(2)
-        dt = c1.date_input("Data", date.today(), format="DD/MM/YYYY")
-        ds = c1.text_input("Descrição")
-        vl = c2.number_input("Valor", min_value=0.0)
-        tp = c2.selectbox("Tipo", ["Receita", "Despesa"])
-        ct = st.selectbox("Categoria", ["Salário", "Moradia", "Lazer", "Alimentação", "Transporte"])
-        pr = st.number_input("Parcelas (Meses)", min_value=1, value=1)
-        if st.form_submit_button("SALVAR REGISTRO"):
-            itens = [{"data": (pd.to_datetime(dt) + pd.DateOffset(months=i)).strftime('%Y-%m-%d'), "descricao": f"{ds} ({i+1}/{pr})" if pr > 1 else ds, "valor": float(vl/pr), "tipo": tp, "categoria": ct, "created_by": st.session_state.usuario} for i in range(int(pr))]
-            conn.client.table("lancamentos").insert(itens).execute()
-            st.cache_data.clear()
-            st.success("Salvo!")
-            st.rerun()
+        with c1:
+            dt = st.date_input("Data", date.today(), format="DD/MM/YYYY")
+            ds = st.text_input("Descrição")
+            vl = st.number_input("Valor", min_value=0.0)
+        with c2:
+            tp = st.selectbox("Tipo", ["Receita", "Despesa"])
+            ct = st.selectbox("Categoria", ["Salário", "Moradia", "Lazer", "Alimentação", "Transporte"])
+            pr = st.number_input("Parcelar em quantas vezes?", min_value=1, value=1)
+        
+        if st.form_submit_button("SALVAR"):
+            if ds and vl > 0:
+                itens = []
+                for i in range(int(pr)):
+                    nova_data = (pd.to_datetime(dt) + pd.DateOffset(months=i)).strftime('%Y-%m-%d')
+                    desc_f = f"{ds} ({i+1}/{pr})" if pr > 1 else ds
+                    itens.append({"data": nova_data, "descricao": desc_f, "valor": float(vl/pr), "tipo": tp, "categoria": ct, "created_by": st.session_state.usuario})
+                conn.client.table("lancamentos").insert(itens).execute()
+                st.cache_data.clear()
+                st.success("Salvo com sucesso!")
+                st.rerun()
 
 # --- ABA 3: GERENCIAR ---
 elif aba == "⚙️ Gerenciar":
     st.markdown("<h1>⚙️ Gerenciamento</h1>", unsafe_allow_html=True)
-    t1, t2 = st.tabs(["✏️ Editar/Excluir", "🛠️ Configurações"])
-    with t1:
-        if not df_raw.empty:
-            df_raw['display'] = df_raw['data'].astype(str) + " - " + df_raw['descricao']
-            sel = st.selectbox("Item:", df_raw['id'].tolist(), format_func=lambda x: df_raw.loc[df_raw['id']==x, 'display'].values[0])
-            item = df_raw[df_raw['id'] == sel].iloc[0]
-            with st.form("edit"):
-                n_ds = st.text_input("Descrição", item['descricao'])
-                n_vl = st.number_input("Valor", value=float(item['valor']))
-                if st.form_submit_button("ATUALIZAR"):
-                    conn.client.table("lancamentos").update({"descricao": n_ds, "valor": n_vl}).eq("id", sel).execute()
-                    st.cache_data.clear()
-                    st.rerun()
+    if not df_raw.empty:
+        df_raw['display'] = df_raw['data'].astype(str) + " - " + df_raw['descricao']
+        sel = st.selectbox("Item:", df_raw['id'].tolist(), format_func=lambda x: df_raw.loc[df_raw['id']==x, 'display'].values[0])
+        item = df_raw[df_raw['id'] == sel].iloc[0]
+        with st.form("edit"):
+            ed_ds = st.text_input("Descrição", item['descricao'])
+            ed_vl = st.number_input("Valor", value=float(item['valor']))
+            if st.form_submit_button("ATUALIZAR"):
+                conn.client.table("lancamentos").update({"descricao": ed_ds, "valor": ed_vl}).eq("id", sel).execute()
+                st.cache_data.clear()
+                st.rerun()
