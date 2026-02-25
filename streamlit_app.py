@@ -19,7 +19,7 @@ if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if 'usuario' not in st.session_state: st.session_state.usuario = None
 if 'nome_exibicao' not in st.session_state: st.session_state.nome_exibicao = "Usuário"
 
-# --- 4. CSS: CORREÇÃO DEFINITIVA DE VISIBILIDADE DOS BOTÕES ---
+# --- 4. CSS: BOTÕES E CENTRALIZAÇÃO ---
 st.markdown("""
     <style>
     .stApp {
@@ -29,7 +29,6 @@ st.markdown("""
     header {visibility: hidden;}
     [data-testid="stSidebar"] { background-color: #1E3A8A !important; }
     
-    /* Containers Glassmorphism */
     [data-testid="stForm"], div.stMetric, .stTabs, .stDataFrame {
         background: rgba(255, 255, 255, 0.1) !important;
         backdrop-filter: blur(15px);
@@ -38,14 +37,13 @@ st.markdown("""
         padding: 20px !important;
     }
 
-    /* Centralizar Abas do Login */
     .login-box .stTabs [data-baseweb="tab-list"] {
         display: flex;
         justify-content: center;
         width: 100%;
     }
 
-    /* --- AJUSTE DOS BOTÕES: TEXTO AZUL ESCURO PARA MÁXIMA VISIBILIDADE --- */
+    /* BOTÕES COM TEXTO AZUL MARINHO FORÇADO */
     div.stButton > button, div.stFormSubmitButton > button {
         background-color: #FFFFFF !important;
         border: 1px solid #FFFFFF !important;
@@ -53,25 +51,15 @@ st.markdown("""
         height: 48px !important;
         width: 100% !important;
         box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
-        transition: all 0.2s ease;
     }
 
-    /* Forçando a cor do texto no botão em todos os estados possíveis */
     div.stButton > button p, div.stFormSubmitButton > button p {
         color: #1E3A8A !important;
         font-weight: 800 !important;
-        font-size: 1rem !important;
-    }
-    
-    /* Hover (quando passa o mouse) */
-    div.stButton > button:hover {
-        background-color: #f0f2f6 !important;
-        border-color: #1E3A8A !important;
     }
 
     h1, h2, h3, label, p, [data-testid="stMetricValue"] { color: white !important; }
     input, select, textarea { background-color: white !important; color: #1E3A8A !important; }
-    
     .main .block-container { padding-top: 2rem !important; }
     </style>
     """, unsafe_allow_html=True)
@@ -80,17 +68,11 @@ st.markdown("""
 if not st.session_state.autenticado:
     st.markdown("<style>[data-testid='stSidebar'] {display: none;}</style>", unsafe_allow_html=True)
     _, col_central, _ = st.columns([1, 1.8, 1])
-    
     with col_central:
         st.markdown('<div class="login-box">', unsafe_allow_html=True)
         l1, l2, l3 = st.columns([0.6, 1, 0.6])
         with l2:
-            if os.path.exists("logo.png"):
-                st.image("logo.png", use_container_width=True)
-            else:
-                st.markdown("<h1 style='text-align: center; font-size: 5rem; margin:0;'>💰</h1>", unsafe_allow_html=True)
-        
-        st.markdown("<p style='text-align: center; opacity: 0.9; margin-top: -10px; margin-bottom: 25px;'>Inteligência Financeira</p>", unsafe_allow_html=True)
+            st.markdown("<h1 style='text-align: center; font-size: 5rem; margin:0;'>💰</h1>", unsafe_allow_html=True)
         
         t_log, t_reg, t_rec, t_sup = st.tabs(["🔐 Entrar", "📝 Cadastro", "🔑 Senha", "❔ Suporte"])
         
@@ -106,19 +88,16 @@ if not st.session_state.autenticado:
                         st.session_state.nome_exibicao = res.data[0]['nome']
                         st.rerun()
                     else: st.error("Erro no login.")
-        
         with t_reg:
             with st.form("reg_form"):
                 n, em, se = st.text_input("Nome"), st.text_input("E-mail"), st.text_input("Senha", type="password")
                 if st.form_submit_button("CRIAR CONTA"):
                     conn.client.table("usuarios").insert({"email": em, "senha": se, "nome": n}).execute()
                     st.success("Sucesso!")
-        
         with t_rec:
             with st.form("rec_form"):
-                st.text_input("E-mail para recuperação")
+                st.text_input("E-mail")
                 st.form_submit_button("ENVIAR LINK")
-        
         with t_sup:
             st.markdown("<p style='text-align:center;'>suporte@moneyflow.pro</p>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
@@ -149,8 +128,8 @@ def carregar_opcoes(chave):
     except: return []
 
 df_raw = carregar_dados()
-tipos_disp = list(set(["Receita", "Despesa", "Investimento"] + carregar_opcoes("tipo")))
-cats_disp = list(set(["Salário", "Moradia", "Lazer", "Alimentação"] + carregar_opcoes("categoria")))
+tipos_disp = sorted(list(set(["Receita", "Despesa", "Investimento"] + carregar_opcoes("tipo"))))
+cats_disp = sorted(list(set(["Salário", "Moradia", "Lazer", "Alimentação", "Transporte"] + carregar_opcoes("categoria"))))
 
 # --- 7. DASHBOARD ---
 if aba == "📊 Dashboard":
@@ -191,7 +170,7 @@ elif aba == "➕ Novo Lançamento":
             st.success("Salvo!")
             st.rerun()
 
-# --- 9. GERENCIAR ---
+# --- 9. GERENCIAR (COM TRATAMENTO DE ERRO API) ---
 elif aba == "⚙️ Gerenciar":
     st.markdown("<h1>⚙️ Gerenciamento</h1>", unsafe_allow_html=True)
     t1, t2 = st.tabs(["✏️ Editar / Excluir", "🛠️ Configurar Listas"])
@@ -219,12 +198,24 @@ elif aba == "⚙️ Gerenciar":
         with c1:
             with st.form("f_t"):
                 nt = st.text_input("Novo Tipo")
-                if st.form_submit_button("ADD TIPO"):
-                    conn.client.table("configuracoes").insert({"chave": "tipo", "valor": nt, "created_by": st.session_state.usuario}).execute()
-                    st.rerun()
+                if st.form_submit_button("ADICIONAR TIPO"):
+                    if nt:
+                        try:
+                            conn.client.table("configuracoes").insert({"chave": "tipo", "valor": nt, "created_by": st.session_state.usuario}).execute()
+                            st.success(f"Tipo '{nt}' adicionado!")
+                            time.sleep(1)
+                            st.rerun()
+                        except Exception as e:
+                            st.error("Erro ao salvar no banco. Verifique se a tabela 'configuracoes' existe no Supabase.")
         with c2:
             with st.form("f_c"):
                 nc = st.text_input("Nova Categoria")
-                if st.form_submit_button("ADD CATEGORIA"):
-                    conn.client.table("configuracoes").insert({"chave": "categoria", "valor": nc, "created_by": st.session_state.usuario}).execute()
-                    st.rerun()
+                if st.form_submit_button("ADICIONAR CATEGORIA"):
+                    if nc:
+                        try:
+                            conn.client.table("configuracoes").insert({"chave": "categoria", "valor": nc, "created_by": st.session_state.usuario}).execute()
+                            st.success(f"Categoria '{nc}' adicionada!")
+                            time.sleep(1)
+                            st.rerun()
+                        except Exception as e:
+                            st.error("Erro ao salvar categoria.")
