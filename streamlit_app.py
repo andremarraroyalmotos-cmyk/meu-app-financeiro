@@ -185,23 +185,71 @@ elif aba == "➕ Novo Lançamento":
 
 # --- ABA 3: GERENCIAR ---
 elif aba == "⚙️ Gerenciar":
-    st.markdown("<h1>⚙️ Gerenciar</h1>", unsafe_allow_html=True)
-    t1, t2 = st.tabs(["✏️ Editar", "🛠️ Configurar"])
+    st.markdown("<h1>⚙️ Gerenciamento</h1>", unsafe_allow_html=True)
+    t1, t2 = st.tabs(["✏️ Editar / Excluir Lançamento", "🛠️ Configurar Listas"])
+    
     with t1:
         if not df_raw.empty:
-            df_raw['display'] = df_raw['data'].astype(str) + " - " + df_raw['descricao']
-            sel = st.selectbox("Escolha o item:", df_raw['id'].tolist(), format_func=lambda x: df_raw.loc[df_raw['id']==x, 'display'].values[0])
-            item = df_raw[df_raw['id'] == sel].iloc[0]
-            with st.form("edit"):
-                n_ds = st.text_input("Nova Descrição", item['descricao'])
-                n_vl = st.number_input("Novo Valor", value=float(item['valor']))
-                if st.form_submit_button("ATUALIZAR"):
-                    conn.client.table("lancamentos").update({"descricao": n_ds, "valor": n_vl}).eq("id", sel).execute()
+            st.subheader("Alterar Registros")
+            # Formatação para busca fácil
+            df_raw['display'] = pd.to_datetime(df_raw['data']).dt.strftime('%d/%m/%Y') + " - " + df_raw['descricao']
+            sel_id = st.selectbox("Selecione o lançamento:", df_raw['id'].tolist(), 
+                                   format_func=lambda x: df_raw.loc[df_raw['id'] == x, 'display'].values[0])
+            item = df_raw[df_raw['id'] == sel_id].iloc[0]
+            
+            with st.form("edit_registro"):
+                c1, c2 = st.columns(2)
+                novo_ds = c1.text_input("Descrição", item['descricao'])
+                novo_vl = c2.number_input("Valor", value=float(item['valor']))
+                
+                col_a, col_b = st.columns(2)
+                if col_a.form_submit_button("💾 ATUALIZAR"):
+                    conn.client.table("lancamentos").update({"descricao": novo_ds, "valor": novo_vl}).eq("id", sel_id).execute()
                     st.cache_data.clear()
+                    st.success("Atualizado!")
+                    time.sleep(1)
                     st.rerun()
+                if col_b.form_submit_button("🗑️ EXCLUIR"):
+                    conn.client.table("lancamentos").delete().eq("id", sel_id).execute()
+                    st.cache_data.clear()
+                    st.warning("Removido!")
+                    time.sleep(1)
+                    st.rerun()
+
     with t2:
-        with st.form("cat"):
-            nc = st.text_input("Nova Categoria")
-            if st.form_submit_button("Adicionar"):
-                conn.client.table("configuracoes").insert({"chave": "categoria", "valor": nc, "created_by": st.session_state.usuario}).execute()
-                st.rerun()
+        st.subheader("Personalizar Opções")
+        st.write("Adicione novos itens para aparecerem nos seletores de lançamento.")
+        
+        col_tipo, col_cat = st.columns(2)
+        
+        # Bloco para Novo Tipo (Ex: Pix, Cartão, Dinheiro ou novas classificações)
+        with col_tipo:
+            with st.form("form_novo_tipo"):
+                st.markdown("### 🏷️ Novo Tipo")
+                nt = st.text_input("Ex: Investimento, Extra...")
+                if st.form_submit_button("ADICIONAR TIPO"):
+                    if nt:
+                        conn.client.table("configuracoes").insert({
+                            "chave": "tipo", 
+                            "valor": nt, 
+                            "created_by": st.session_state.usuario
+                        }).execute()
+                        st.success(f"Tipo '{nt}' adicionado!")
+                        time.sleep(1)
+                        st.rerun()
+
+        # Bloco para Nova Categoria (Ex: Pet, Presentes, Assinaturas)
+        with col_cat:
+            with st.form("form_nova_cat"):
+                st.markdown("### 📂 Nova Categoria")
+                nc = st.text_input("Ex: Streaming, Farmácia...")
+                if st.form_submit_button("ADICIONAR CATEGORIA"):
+                    if nc:
+                        conn.client.table("configuracoes").insert({
+                            "chave": "categoria", 
+                            "valor": nc, 
+                            "created_by": st.session_state.usuario
+                        }).execute()
+                        st.success(f"Categoria '{nc}' adicionada!")
+                        time.sleep(1)
+                        st.rerun()
