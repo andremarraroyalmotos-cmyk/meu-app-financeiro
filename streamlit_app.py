@@ -18,17 +18,28 @@ if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if 'usuario' not in st.session_state: st.session_state.usuario = None
 if 'nome_exibicao' not in st.session_state: st.session_state.nome_exibicao = "Usuário"
 
-# --- 4. CSS: DESIGN FIDELIDADE TOTAL + BOTÕES VISÍVEIS ---
+# --- 4. CSS: CORREÇÃO DA SIDEBAR + BOTÕES VISÍVEIS ---
 st.markdown("""
     <style>
-    /* Fundo Gradiente Principal */
+    /* 1. FUNDO E GRADIENTE */
     .stApp {
         background: linear-gradient(135deg, #0093E9 0%, #80D0C7 50%, #931ca1 100%) !important;
         background-attachment: fixed;
     }
     header {visibility: hidden;}
 
-    /* Containers de Vidro */
+    /* 2. CORREÇÃO DA SIDEBAR (Retornando ao Azul Sólido das fotos) */
+    [data-testid="stSidebar"] {
+        background-color: #1E3A8A !important; /* Azul Marinho Idêntico à Imagem 100 */
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    /* Garantir que o texto da sidebar seja branco */
+    [data-testid="stSidebar"] .stMarkdown p, [data-testid="stSidebar"] label {
+        color: white !important;
+    }
+
+    /* 3. CONTAINERS GLASSMORPISM NO CONTEÚDO */
     [data-testid="stForm"], div.stMetric, .stTabs, .stDataFrame {
         background: rgba(255, 255, 255, 0.1) !important;
         backdrop-filter: blur(15px);
@@ -37,45 +48,44 @@ st.markdown("""
         padding: 20px !important;
     }
 
-    /* ESTILO GLOBAL PARA BOTÕES DE AÇÃO (Salvar, Adicionar, Acessar) */
-    /* Isso garante que eles não fiquem transparentes */
+    /* 4. BOTÕES DE FORMULÁRIO (Sólidos e Visíveis) */
     .stButton button, .stFormSubmitButton button {
-        background-color: rgba(255, 255, 255, 0.9) !important; /* Fundo sólido quase branco */
-        color: #1E3A8A !important; /* Texto em Azul Marinho */
+        background-color: #FFFFFF !important; /* Branco Sólido */
+        color: #1E3A8A !important; /* Texto Azul */
         border-radius: 10px !important;
-        border: none !important;
+        border: 1px solid #1E3A8A !important;
         font-weight: bold !important;
         height: 45px !important;
         width: 100% !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
-        transition: all 0.3s ease !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
     }
 
-    /* Efeito de Hover para os botões de ação */
+    /* Hover dos botões de formulário */
     .stButton button:hover, .stFormSubmitButton button:hover {
-        background-color: #1E3A8A !important; /* Inverte para Azul Marinho no hover */
-        color: white !important;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 15px rgba(0,0,0,0.2) !important;
+        background-color: #f0f2f6 !important;
+        border: 1px solid #1E3A8A !important;
+        color: #1E3A8A !important;
     }
 
-    /* BOTÃO SAIR (Diferenciado na Sidebar) */
+    /* 5. BOTÃO SAIR (Especial para a Sidebar) */
     section[data-testid="stSidebar"] .stButton button {
-        background-color: #1E3A8A !important;
+        background-color: rgba(255, 255, 255, 0.2) !important;
         color: white !important;
+        border: 1px solid white !important;
         margin-top: 20px;
     }
     
     section[data-testid="stSidebar"] .stButton button:hover {
-        background-color: #0d1b42 !important;
+        background-color: white !important;
+        color: #1E3A8A !important;
     }
 
-    /* Ajuste de Textos e Labels */
-    h1, h2, h3, label, [data-testid="stMetricValue"], [data-testid="stSidebar"] p {
+    /* 6. TEXTOS GERAIS */
+    h1, h2, h3, label, [data-testid="stMetricValue"] {
         color: white !important;
     }
     
-    /* Inputs Brancos para facilitar leitura */
+    /* Inputs Brancos */
     input, select, textarea {
         background-color: white !important;
         color: #1E3A8A !important;
