@@ -19,63 +19,62 @@ if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if 'usuario' not in st.session_state: st.session_state.usuario = None
 if 'nome_exibicao' not in st.session_state: st.session_state.nome_exibicao = "Usuário"
 
-# --- 4. CSS CUSTOMIZADO (RESPONSIVIDADE E ESTILO) ---
+# --- 4. CSS CUSTOMIZADO ---
 st.markdown("""
     <style>
     .stApp { background: linear-gradient(135deg, #0093E9 0%, #80D0C7 50%, #931ca1 100%) !important; background-attachment: fixed; }
     header {visibility: hidden;}
     
-    /* Estilo da Sidebar (Só aparece logado) */
+    /* Esconder Sidebar no Login e Estilo Geral */
     [data-testid="stSidebar"] { background-color: #1E3A8A !important; border-right: 1px solid rgba(255, 255, 255, 0.1); }
-    [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label { color: white !important; font-weight: 500; font-size: 1.1rem; }
+    [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label { color: white !important; font-weight: 500; }
     
-    /* Containers */
+    /* Containers Glassmorphism */
     [data-testid="stForm"], div.stMetric, .stTabs, .stDataFrame { 
         background: rgba(255, 255, 255, 0.1) !important; 
         backdrop-filter: blur(15px); 
         border-radius: 20px !important; 
         border: 1px solid rgba(255, 255, 255, 0.2) !important; 
-        padding: 20px !important; 
     }
     
-    /* Botões */
+    /* CORREÇÃO DOS BOTÕES: Sempre Branco com Texto Azul */
     .stButton button, .stFormSubmitButton button { 
         background-color: #FFFFFF !important; 
         color: #1E3A8A !important; 
         border-radius: 10px !important; 
         font-weight: bold !important; 
-        height: 45px !important; 
+        height: 45px !important;
+        width: 100% !important;
+        border: none !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
     }
     
-    /* Textos */
+    /* Ajuste de proximidade: reduz padding do topo */
+    .main .block-container { padding-top: 1.5rem !important; }
+
+    /* Textos Gerais */
     h1, h2, h3, label, [data-testid="stMetricValue"], p { color: white !important; }
     input, select, textarea { background-color: white !important; color: #1E3A8A !important; }
-    
-    /* Ajuste para esconder sidebar no login */
-    section[data-testid="stSidebar"][aria-expanded="false"] { margin-left: -21rem; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 5. TELA DE LOGIN (SEM SIDEBAR) ---
+# --- 5. TELA DE LOGIN ---
 if not st.session_state.autenticado:
-    # Remove a sidebar visualmente na tela de login
     st.markdown("<style>[data-testid='stSidebar'] {display: none;}</style>", unsafe_allow_html=True)
     
     _, col_central, _ = st.columns([1, 1.8, 1])
     
     with col_central:
-        st.markdown("<br><br>", unsafe_allow_html=True)
-        
-        # LOGO CENTRALIZADA E MAIOR (RESPONSIVA)
-        c_img1, c_img2, c_img3 = st.columns([0.5, 2, 0.5])
+        # LOGO CENTRALIZADA E APROXIMADA
+        c_img1, c_img2, c_img3 = st.columns([0.6, 1.2, 0.6])
         with c_img2:
             if os.path.exists("logo.png"):
                 st.image("logo.png", use_container_width=True)
             else:
-                st.markdown("<h1 style='text-align: center; font-size: 5rem;'>💰</h1>", unsafe_allow_html=True)
+                st.markdown("<h1 style='text-align: center; font-size: 4rem; margin: 0;'>💰</h1>", unsafe_allow_html=True)
         
-        st.markdown("<h1 style='text-align: center; margin-top: 10px;'>MONEYFLOW</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='text-align: center; opacity: 0.8; margin-top: -15px;'>Inteligência Financeira</p>", unsafe_allow_html=True)
+        # Somente a frase Inteligência Financeira (tamanho mantido)
+        st.markdown("<p style='text-align: center; opacity: 0.9; margin-top: -10px; margin-bottom: 20px; font-size: 1.1rem;'>Inteligência Financeira</p>", unsafe_allow_html=True)
         
         t_log, t_reg, t_rec, t_sup = st.tabs(["🔐 Entrar", "📝 Cadastro", "🔑 Senha", "❔ Suporte"])
         
@@ -111,10 +110,10 @@ if not st.session_state.autenticado:
             st.write("Suporte técnico: suporte@moneyflow.pro")
     st.stop()
 
-# --- 6. SIDEBAR (APARECE APÓS LOGIN) ---
+# --- 6. SIDEBAR (LOGADO) ---
 st.sidebar.markdown(f"<br><p style='text-align: center;'>Olá, <b>{st.session_state.nome_exibicao}</b></p>", unsafe_allow_html=True)
 aba = st.sidebar.radio("Navegação", ["📊 Dashboard", "➕ Novo Lançamento", "⚙️ Gerenciar"])
-st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
+st.sidebar.markdown("<br>", unsafe_allow_html=True)
 if st.sidebar.button("🚪 SAIR DO SISTEMA"):
     st.session_state.autenticado = False
     st.rerun()
@@ -138,14 +137,8 @@ def carregar_opcoes(chave):
     except: return []
 
 df_raw = carregar_dados()
-# Unifica as opções padrão com as do banco de dados
-tipos_base = ["Receita", "Despesa", "Investimento"]
-tipos_extra = carregar_opcoes("tipo")
-tipos_disp = list(set(tipos_base + tipos_extra))
-
-cats_base = ["Salário", "Moradia", "Lazer", "Alimentação", "Transporte"]
-cats_extra = carregar_opcoes("categoria")
-cats_disp = list(set(cats_base + cats_extra))
+tipos_disp = list(set(["Receita", "Despesa", "Investimento"] + carregar_opcoes("tipo")))
+cats_disp = list(set(["Salário", "Moradia", "Lazer", "Alimentação", "Transporte"] + carregar_opcoes("categoria")))
 
 # --- 8. DASHBOARD ---
 if aba == "📊 Dashboard":
@@ -192,7 +185,7 @@ elif aba == "➕ Novo Lançamento":
                 time.sleep(1)
                 st.rerun()
 
-# --- 10. GERENCIAR (RESTAURADO) ---
+# --- 10. GERENCIAR ---
 elif aba == "⚙️ Gerenciar":
     st.markdown("<h1>⚙️ Gerenciamento</h1>", unsafe_allow_html=True)
     t1, t2 = st.tabs(["✏️ Editar / Excluir", "🛠️ Configurar Listas"])
@@ -229,7 +222,7 @@ elif aba == "⚙️ Gerenciar":
                             st.success(f"Tipo '{nt}' adicionado!")
                             time.sleep(1)
                             st.rerun()
-                        except: st.error("Erro ao salvar. Verifique as colunas da tabela 'configuracoes'.")
+                        except: st.error("Erro ao salvar.")
 
         with col_cat:
             with st.form("form_cat"):
