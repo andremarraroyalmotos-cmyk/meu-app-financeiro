@@ -19,21 +19,17 @@ if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if 'usuario' not in st.session_state: st.session_state.usuario = None
 if 'nome_exibicao' not in st.session_state: st.session_state.nome_exibicao = "Usuário"
 
-# --- 4. CSS: CORREÇÃO TOTAL DE TRANSPARÊNCIA E ALINHAMENTO ---
+# --- 4. CSS: BOTÕES BRANCOS SÓLIDOS E CENTRALIZAÇÃO ---
 st.markdown("""
     <style>
-    /* FUNDO PRINCIPAL */
     .stApp {
         background: linear-gradient(135deg, #0093E9 0%, #80D0C7 50%, #931ca1 100%) !important;
         background-attachment: fixed;
     }
     header {visibility: hidden;}
 
-    /* SIDEBAR */
     [data-testid="stSidebar"] { background-color: #1E3A8A !important; }
-    [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label { color: white !important; font-weight: 500; }
-
-    /* CONTAINERS GLASSMORPISM */
+    
     [data-testid="stForm"], div.stMetric, .stTabs, .stDataFrame {
         background: rgba(255, 255, 255, 0.1) !important;
         backdrop-filter: blur(15px);
@@ -42,42 +38,36 @@ st.markdown("""
         padding: 20px !important;
     }
 
-    /* CENTRALIZAÇÃO DAS ABAS NO LOGIN */
+    /* CENTRALIZAÇÃO DAS ABAS NA CLASSE LOGIN-BOX */
     .login-box .stTabs [data-baseweb="tab-list"] {
         display: flex;
         justify-content: center;
         width: 100%;
     }
 
-    /* FIXAÇÃO DA COR DOS BOTÕES (REMOVENDO TRANSPARÊNCIA) */
+    /* BOTÕES BRANCOS SÓLIDOS (FORÇADO) */
     div.stButton > button, div.stFormSubmitButton > button {
         background-color: #FFFFFF !important;
-        background-image: none !important; /* Remove gradientes do sistema */
+        background-image: none !important;
         color: #1E3A8A !important;
-        opacity: 1 !important; /* Força opacidade máxima */
+        opacity: 1 !important;
         border: 1px solid #FFFFFF !important;
         border-radius: 10px !important;
         font-weight: bold !important;
-        height: 45px !important;
+        height: 48px !important;
         width: 100% !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.2) !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
     }
     
     div.stButton > button:hover { 
-        background-color: #f0f2f6 !important; 
-        color: #1E3A8A !important;
+        background-color: #F8FAFC !important;
+        transform: translateY(-1px);
     }
 
-    /* TEXTOS E INPUTS */
     h1, h2, h3, label, p, [data-testid="stMetricValue"] { color: white !important; }
-    input, select, textarea { 
-        background-color: white !important; 
-        color: #1E3A8A !important; 
-        opacity: 1 !important;
-    }
+    input, select, textarea { background-color: white !important; color: #1E3A8A !important; }
     
-    /* AJUSTE DE ESPAÇAMENTO */
-    .main .block-container { padding-top: 2rem !important; }
+    .main .block-container { padding-top: 3rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -90,7 +80,6 @@ if not st.session_state.autenticado:
     with col_central:
         st.markdown('<div class="login-box">', unsafe_allow_html=True)
         
-        # LOGO CENTRALIZADA
         l1, l2, l3 = st.columns([0.6, 1, 0.6])
         with l2:
             if os.path.exists("logo.png"):
@@ -114,7 +103,7 @@ if not st.session_state.autenticado:
                         st.session_state.nome_exibicao = res.data[0]['nome']
                         st.rerun()
                     else:
-                        st.error("Login ou senha incorretos.")
+                        st.error("Credenciais inválidas.")
         
         with t_reg:
             with st.form("reg_form"):
@@ -122,16 +111,22 @@ if not st.session_state.autenticado:
                 em = st.text_input("E-mail")
                 se = st.text_input("Senha", type="password")
                 if st.form_submit_button("CRIAR CONTA"):
-                    conn.client.table("usuarios").insert({"email": em, "senha": se, "nome": n}).execute()
-                    st.success("Cadastro realizado!")
+                    if n and em and se:
+                        conn.client.table("usuarios").insert({"email": em, "senha": se, "nome": n}).execute()
+                        st.success("Conta criada!")
+                    else:
+                        st.warning("Preencha todos os campos.")
         
         with t_rec:
-            st.markdown("<p style='text-align: center;'>Recuperação de Acesso</p>", unsafe_allow_html=True)
-            st.text_input("E-mail cadastrado")
-            st.form_submit_button("ENVIAR LINK")
+            # CORREÇÃO DO ERRO: Adicionado st.form aqui
+            with st.form("rec_form"):
+                st.markdown("<p style='text-align: center;'>Enviaremos um link para o seu e-mail.</p>", unsafe_allow_html=True)
+                email_rec = st.text_input("E-mail cadastrado")
+                if st.form_submit_button("ENVIAR LINK"):
+                    st.info("Funcionalidade em manutenção.")
             
         with t_sup:
-            st.markdown("<p style='text-align: center;'>Contato: suporte@moneyflow.pro</p>", unsafe_allow_html=True)
+            st.markdown("<div style='text-align: center; padding: 20px;'>Suporte técnico:<br><b>suporte@moneyflow.pro</b></div>", unsafe_allow_html=True)
         
         st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
@@ -144,7 +139,7 @@ if st.sidebar.button("🚪 SAIR DO SISTEMA"):
     st.session_state.autenticado = False
     st.rerun()
 
-# --- 7. CARREGAMENTO DE DADOS (LOGADO) ---
+# --- 7. CARREGAMENTO DE DADOS ---
 @st.cache_data(ttl=5)
 def carregar_dados():
     try:
@@ -163,8 +158,8 @@ if aba == "📊 Dashboard":
     st.markdown("<h1>📊 Dashboard</h1>", unsafe_allow_html=True)
     if not df_raw.empty:
         c1, c2 = st.columns(2)
-        d_i = c1.date_input("Início", df_raw['data'].min(), format="DD/MM/YYYY")
-        d_f = c2.date_input("Fim", date.today(), format="DD/MM/YYYY")
+        d_i = c1.date_input("Início", df_raw['data'].min())
+        d_f = c2.date_input("Fim", date.today())
         df_f = df_raw[(df_raw['data'] >= d_i) & (df_raw['data'] <= d_f)].copy()
         
         r, d = df_f[df_f['tipo'] == 'Receita']['valor'].sum(), df_f[df_f['tipo'] != 'Receita']['valor'].sum()
@@ -176,7 +171,7 @@ if aba == "📊 Dashboard":
         st.markdown("### 📝 Histórico")
         st.dataframe(df_f[['data', 'descricao', 'categoria', 'tipo', 'valor']].sort_values('data', ascending=False), use_container_width=True)
     else:
-        st.info("Aguardando lançamentos...")
+        st.info("Nenhum dado cadastrado.")
 
 # --- 9. NOVO LANÇAMENTO ---
 elif aba == "➕ Novo Lançamento":
@@ -190,10 +185,7 @@ elif aba == "➕ Novo Lançamento":
             ct = st.selectbox("Categoria", ["Salário", "Lazer", "Contas", "Outros"])
             pr = st.number_input("Parcelas", 1)
         if st.form_submit_button("SALVAR"):
-            itens = [{"data": (pd.to_datetime(dt) + pd.DateOffset(months=i)).strftime('%Y-%m-%d'), 
-                      "descricao": f"{ds} ({i+1}/{pr})" if pr > 1 else ds, 
-                      "valor": float(vl/pr), "tipo": tp, "categoria": ct, 
-                      "created_by": st.session_state.usuario} for i in range(int(pr))]
+            itens = [{"data": (pd.to_datetime(dt) + pd.DateOffset(months=i)).strftime('%Y-%m-%d'), "descricao": f"{ds} ({i+1}/{pr})" if pr > 1 else ds, "valor": float(vl/pr), "tipo": tp, "categoria": ct, "created_by": st.session_state.usuario} for i in range(int(pr))]
             conn.client.table("lancamentos").insert(itens).execute()
             st.cache_data.clear()
             st.success("Salvo!")
@@ -202,13 +194,11 @@ elif aba == "➕ Novo Lançamento":
 # --- 10. GERENCIAR ---
 elif aba == "⚙️ Gerenciar":
     st.markdown("<h1>⚙️ Gerenciamento</h1>", unsafe_allow_html=True)
-    t1, t2 = st.tabs(["✏️ Excluir Lançamentos", "🛠️ Configurar Listas"])
-    
+    t1, t2 = st.tabs(["✏️ Excluir Lançamentos", "🛠️ Configurar"])
     with t1:
         if not df_raw.empty:
             df_raw['display'] = df_raw['data'].astype(str) + " - " + df_raw['descricao']
-            sel_id = st.selectbox("Selecione para excluir:", df_raw['id'].tolist(), 
-                                  format_func=lambda x: df_raw.loc[df_raw['id'] == x, 'display'].values[0])
+            sel_id = st.selectbox("Selecione para excluir:", df_raw['id'].tolist(), format_func=lambda x: df_raw.loc[df_raw['id'] == x, 'display'].values[0])
             if st.button("CONFIRMAR EXCLUSÃO"):
                 conn.client.table("lancamentos").delete().eq("id", sel_id).execute()
                 st.cache_data.clear()
