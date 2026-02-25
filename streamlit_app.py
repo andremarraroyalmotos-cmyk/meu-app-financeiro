@@ -4,6 +4,7 @@ import pandas as pd
 import plotly.express as px
 from datetime import date
 import time
+import os  #
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="MoneyFlow Pro", layout="wide", page_icon="💰")
