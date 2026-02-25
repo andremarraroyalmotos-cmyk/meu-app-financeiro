@@ -19,15 +19,14 @@ if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if 'usuario' not in st.session_state: st.session_state.usuario = None
 if 'nome_exibicao' not in st.session_state: st.session_state.nome_exibicao = "Usuário"
 
-# --- 4. CSS CUSTOMIZADO ---
+# --- 4. CSS CUSTOMIZADO (CORREÇÃO DE ASSIMETRIA E CORES) ---
 st.markdown("""
     <style>
     .stApp { background: linear-gradient(135deg, #0093E9 0%, #80D0C7 50%, #931ca1 100%) !important; background-attachment: fixed; }
     header {visibility: hidden;}
     
-    /* Esconder Sidebar no Login e Estilo Geral */
-    [data-testid="stSidebar"] { background-color: #1E3A8A !important; border-right: 1px solid rgba(255, 255, 255, 0.1); }
-    [data-testid="stSidebar"] .stRadio div[role="radiogroup"] label { color: white !important; font-weight: 500; }
+    /* Sidebar */
+    [data-testid="stSidebar"] { background-color: #1E3A8A !important; }
     
     /* Containers Glassmorphism */
     [data-testid="stForm"], div.stMetric, .stTabs, .stDataFrame { 
@@ -35,26 +34,41 @@ st.markdown("""
         backdrop-filter: blur(15px); 
         border-radius: 20px !important; 
         border: 1px solid rgba(255, 255, 255, 0.2) !important; 
+        padding: 30px !important;
     }
-    
-    /* CORREÇÃO DOS BOTÕES: Sempre Branco com Texto Azul */
-    .stButton button, .stFormSubmitButton button { 
-        background-color: #FFFFFF !important; 
-        color: #1E3A8A !important; 
-        border-radius: 10px !important; 
-        font-weight: bold !important; 
-        height: 45px !important;
-        width: 100% !important;
-        border: none !important;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1) !important;
-    }
-    
-    /* Ajuste de proximidade: reduz padding do topo */
-    .main .block-container { padding-top: 1.5rem !important; }
 
-    /* Textos Gerais */
-    h1, h2, h3, label, [data-testid="stMetricValue"], p { color: white !important; }
-    input, select, textarea { background-color: white !important; color: #1E3A8A !important; }
+    /* CORREÇÃO DOS BOTÕES (BRANCO COM TEXTO AZUL) */
+    div.stButton > button, div.stFormSubmitButton > button {
+        background-color: #FFFFFF !important;
+        color: #1E3A8A !important;
+        border: none !important;
+        border-radius: 10px !important;
+        height: 50px !important;
+        width: 100% !important;
+        font-weight: bold !important;
+        font-size: 1rem !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    div.stButton > button:hover, div.stFormSubmitButton > button:hover {
+        background-color: #f0f0f0 !important;
+        transform: scale(1.02);
+    }
+
+    /* ALINHAMENTO E ASSIMETRIA DOS CAMPOS */
+    .stTextInput > div > div > input {
+        border-radius: 10px !important;
+        height: 45px !important;
+        background-color: white !important;
+        color: #1E3A8A !important;
+    }
+    
+    /* Ajuste de proximidade e limpeza de margens */
+    .main .block-container { padding-top: 1rem !important; }
+    h1, h2, h3, label, p { color: white !important; font-family: 'sans-serif'; }
+    
+    /* Esconder bordas vermelhas de erro padrão */
+    .stAlert { background-color: rgba(255, 0, 0, 0.2) !important; color: white !important; border: none !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -62,27 +76,28 @@ st.markdown("""
 if not st.session_state.autenticado:
     st.markdown("<style>[data-testid='stSidebar'] {display: none;}</style>", unsafe_allow_html=True)
     
-    _, col_central, _ = st.columns([1, 1.8, 1])
+    # Centralização do container principal
+    _, col_central, _ = st.columns([1, 1.5, 1])
     
     with col_central:
-        # LOGO CENTRALIZADA E APROXIMADA
-        c_img1, c_img2, c_img3 = st.columns([0.6, 1.2, 0.6])
-        with c_img2:
-            if os.path.exists("logo.png"):
-                st.image("logo.png", use_container_width=True)
-            else:
-                st.markdown("<h1 style='text-align: center; font-size: 4rem; margin: 0;'>💰</h1>", unsafe_allow_html=True)
+        # LOGO (Sem colunas internas para evitar quebra de alinhamento)
+        if os.path.exists("logo.png"):
+            st.image("logo.png", width=250) # Tamanho fixo para garantir simetria central
+        else:
+            st.markdown("<h1 style='text-align: center; font-size: 5rem; margin-bottom: 0;'>💰</h1>", unsafe_allow_html=True)
         
-        # Somente a frase Inteligência Financeira (tamanho mantido)
-        st.markdown("<p style='text-align: center; opacity: 0.9; margin-top: -10px; margin-bottom: 20px; font-size: 1.1rem;'>Inteligência Financeira</p>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; opacity: 0.9; margin-top: -10px; margin-bottom: 25px;'>Inteligência Financeira</p>", unsafe_allow_html=True)
         
         t_log, t_reg, t_rec, t_sup = st.tabs(["🔐 Entrar", "📝 Cadastro", "🔑 Senha", "❔ Suporte"])
         
         with t_log:
-            with st.form("login_form"):
+            with st.form("login_form", clear_on_submit=False):
                 e = st.text_input("E-mail")
                 s = st.text_input("Senha", type="password")
-                if st.form_submit_button("ACESSAR DASHBOARD"):
+                # O botão agora ocupa 100% da largura do form para manter a simetria
+                btn_login = st.form_submit_button("ACESSAR DASHBOARD")
+                
+                if btn_login:
                     res = conn.client.table("usuarios").select("*").eq("email", e).eq("senha", s).execute()
                     if res.data:
                         st.session_state.autenticado = True
@@ -90,7 +105,7 @@ if not st.session_state.autenticado:
                         st.session_state.nome_exibicao = res.data[0]['nome']
                         st.rerun()
                     else:
-                        st.error("Login inválido.")
+                        st.error("Login ou senha incorretos.")
         
         with t_reg:
             with st.form("reg_form"):
@@ -98,27 +113,30 @@ if not st.session_state.autenticado:
                 em = st.text_input("E-mail de Cadastro")
                 se = st.text_input("Senha", type="password")
                 if st.form_submit_button("CRIAR CONTA"):
-                    conn.client.table("usuarios").insert({"email": em, "senha": se, "nome": n}).execute()
-                    st.success("Conta criada! Faça login.")
+                    if n and em and se:
+                        conn.client.table("usuarios").insert({"email": em, "senha": se, "nome": n}).execute()
+                        st.success("Conta criada com sucesso!")
+                    else:
+                        st.warning("Preencha todos os campos.")
         
         with t_rec:
-            st.info("Link de recuperação será enviado ao e-mail cadastrado.")
+            st.markdown("<p style='font-size: 0.9rem;'>Insira seu e-mail para receber as instruções de recuperação.</p>", unsafe_allow_html=True)
             st.text_input("E-mail cadastrado")
             st.button("ENVIAR LINK", disabled=True)
             
         with t_sup:
-            st.write("Suporte técnico: suporte@moneyflow.pro")
+            st.markdown("<p style='text-align: center;'>Dúvidas? <br><b>suporte@moneyflow.pro</b></p>", unsafe_allow_html=True)
     st.stop()
 
 # --- 6. SIDEBAR (LOGADO) ---
-st.sidebar.markdown(f"<br><p style='text-align: center;'>Olá, <b>{st.session_state.nome_exibicao}</b></p>", unsafe_allow_html=True)
+st.sidebar.markdown(f"<div style='text-align: center; padding: 10px;'><h3 style='margin-bottom: 0;'>Olá,</h3><h2 style='margin-top: 0;'>{st.session_state.nome_exibicao}</h2></div>", unsafe_allow_html=True)
 aba = st.sidebar.radio("Navegação", ["📊 Dashboard", "➕ Novo Lançamento", "⚙️ Gerenciar"])
-st.sidebar.markdown("<br>", unsafe_allow_html=True)
+st.sidebar.markdown("---")
 if st.sidebar.button("🚪 SAIR DO SISTEMA"):
     st.session_state.autenticado = False
     st.rerun()
 
-# --- 7. CARREGAMENTO DE DADOS E OPÇÕES ---
+# --- 7. CARREGAMENTO DE DADOS ---
 @st.cache_data(ttl=5)
 def carregar_dados():
     try:
@@ -157,11 +175,11 @@ if aba == "📊 Dashboard":
 
         col1, col2 = st.columns(2)
         with col1:
-            st.plotly_chart(px.pie(df_f, values='valor', names='categoria', hole=0.5, title="Gastos").update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", showlegend=False), use_container_width=True)
+            st.plotly_chart(px.pie(df_f, values='valor', names='categoria', hole=0.5, title="Distribuição").update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", showlegend=False), use_container_width=True)
         with col2:
-            st.plotly_chart(px.line(df_f.groupby('data')['valor'].sum().reset_index(), x='data', y='valor', title="Fluxo").update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white"), use_container_width=True)
+            st.plotly_chart(px.line(df_f.groupby('data')['valor'].sum().reset_index(), x='data', y='valor', title="Fluxo de Caixa").update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white"), use_container_width=True)
         st.dataframe(df_f[['data', 'descricao', 'categoria', 'tipo', 'valor']].sort_values('data', ascending=False), use_container_width=True)
-    else: st.info("Sem dados para exibir.")
+    else: st.info("Nenhum lançamento encontrado para este período.")
 
 # --- 9. NOVO LANÇAMENTO ---
 elif aba == "➕ Novo Lançamento":
@@ -176,9 +194,13 @@ elif aba == "➕ Novo Lançamento":
             tp = st.selectbox("Tipo", tipos_disp)
             ct = st.selectbox("Categoria", cats_disp)
             pr = st.number_input("Parcelas (Meses)", min_value=1, value=1)
-        if st.form_submit_button("SALVAR"):
+        
+        if st.form_submit_button("SALVAR LANÇAMENTO"):
             if ds and vl > 0:
-                itens = [{"data": (pd.to_datetime(dt) + pd.DateOffset(months=i)).strftime('%Y-%m-%d'), "descricao": f"{ds} ({i+1}/{pr})" if pr > 1 else ds, "valor": float(vl/pr), "tipo": tp, "categoria": ct, "created_by": st.session_state.usuario} for i in range(int(pr))]
+                itens = [{"data": (pd.to_datetime(dt) + pd.DateOffset(months=i)).strftime('%Y-%m-%d'), 
+                          "descricao": f"{ds} ({i+1}/{pr})" if pr > 1 else ds, 
+                          "valor": float(vl/pr), "tipo": tp, "categoria": ct, 
+                          "created_by": st.session_state.usuario} for i in range(int(pr))]
                 conn.client.table("lancamentos").insert(itens).execute()
                 st.cache_data.clear()
                 st.success("Lançado com sucesso!")
@@ -193,46 +215,42 @@ elif aba == "⚙️ Gerenciar":
     with t1:
         if not df_raw.empty:
             df_raw['display'] = pd.to_datetime(df_raw['data']).dt.strftime('%d/%m/%Y') + " - " + df_raw['descricao']
-            sel_id = st.selectbox("Selecionar item:", df_raw['id'].tolist(), format_func=lambda x: df_raw.loc[df_raw['id'] == x, 'display'].values[0])
+            sel_id = st.selectbox("Selecione o item:", df_raw['id'].tolist(), format_func=lambda x: df_raw.loc[df_raw['id'] == x, 'display'].values[0])
             item = df_raw[df_raw['id'] == sel_id].iloc[0]
             with st.form("edit_form"):
                 c1, c2 = st.columns(2)
                 novo_ds = c1.text_input("Descrição", item['descricao'])
                 novo_vl = c2.number_input("Valor", value=float(item['valor']))
-                if st.form_submit_button("ATUALIZAR"):
+                col_btn1, col_btn2 = st.columns(2)
+                if col_btn1.form_submit_button("ATUALIZAR"):
                     conn.client.table("lancamentos").update({"descricao": novo_ds, "valor": novo_vl}).eq("id", sel_id).execute()
                     st.cache_data.clear()
                     st.rerun()
-                if st.form_submit_button("EXCLUIR"):
+                if col_btn2.form_submit_button("EXCLUIR"):
                     conn.client.table("lancamentos").delete().eq("id", sel_id).execute()
                     st.cache_data.clear()
                     st.rerun()
 
     with t2:
-        st.subheader("Personalizar Opções")
         col_tipo, col_cat = st.columns(2)
         with col_tipo:
             with st.form("form_tipo"):
                 st.markdown("### 🏷️ Novo Tipo")
-                nt = st.text_input("Ex: Pix, Cartão...")
+                nt = st.text_input("Ex: Cartão, Pix...")
                 if st.form_submit_button("ADICIONAR TIPO"):
                     if nt:
-                        try:
-                            conn.client.table("configuracoes").insert({"chave": "tipo", "valor": nt, "created_by": st.session_state.usuario}).execute()
-                            st.success(f"Tipo '{nt}' adicionado!")
-                            time.sleep(1)
-                            st.rerun()
-                        except: st.error("Erro ao salvar.")
+                        conn.client.table("configuracoes").insert({"chave": "tipo", "valor": nt, "created_by": st.session_state.usuario}).execute()
+                        st.success(f"'{nt}' adicionado!")
+                        time.sleep(1)
+                        st.rerun()
 
         with col_cat:
             with st.form("form_cat"):
                 st.markdown("### 📂 Nova Categoria")
-                nc = st.text_input("Ex: Pet, Assinaturas...")
+                nc = st.text_input("Ex: Assinaturas, Pet...")
                 if st.form_submit_button("ADICIONAR CATEGORIA"):
                     if nc:
-                        try:
-                            conn.client.table("configuracoes").insert({"chave": "categoria", "valor": nc, "created_by": st.session_state.usuario}).execute()
-                            st.success(f"Categoria '{nc}' adicionada!")
-                            time.sleep(1)
-                            st.rerun()
-                        except: st.error("Erro ao salvar.")
+                        conn.client.table("configuracoes").insert({"chave": "categoria", "valor": nc, "created_by": st.session_state.usuario}).execute()
+                        st.success(f"'{nc}' adicionada!")
+                        time.sleep(1)
+                        st.rerun()
