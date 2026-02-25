@@ -98,3 +98,85 @@ if not st.session_state.autenticado:
                         st.session_state.nome_exibicao = res.data[0]['nome']
                         st.rerun()
                     else: st.error("E-mail ou senha incorretos.")
+    st.stop()
+
+# --- 6. FUNÇÕES DE DADOS ---
+@st.cache_data(ttl=5)
+def carregar_dados():
+    try:
+        res = conn.client.table("lancamentos").select("*").eq("created_by", st.session_state.usuario).execute()
+        df = pd.DataFrame(res.data)
+        if not df.empty:
+            df['data'] = pd.to_datetime(df['data']).dt.date
+            df['valor'] = pd.to_numeric(df['valor'])
+        return df
+    except: return pd.DataFrame()
+
+df_raw = carregar_dados()
+
+# --- SIDEBAR ---
+st.sidebar.markdown(f"**Olá, {st.session_state.nome_exibicao}**")
+aba = st.sidebar.radio("Navegação", ["📊 Dashboard", "➕ Novo Lançamento", "⚙️ Gerenciar"])
+if st.sidebar.button("🚪 SAIR DO SISTEMA"):
+    st.session_state.autenticado = False
+    st.rerun()
+
+# --- ABA 1: DASHBOARD ---
+if aba == "📊 Dashboard":
+    st.markdown("<h1>📊 Dashboard Geral</h1>", unsafe_allow_html=True)
+    if not df_raw.empty:
+        c1, c2 = st.columns(2)
+        d_ini = c1.date_input("Início", df_raw['data'].min(), format="DD/MM/YYYY")
+        d_fim = c2.date_input("Fim", date.today(), format="DD/MM/YYYY")
+        
+        df_f = df_raw[(df_raw['data'] >= d_ini) & (df_raw['data'] <= d_fim)].copy()
+        
+        m1, m2, m3 = st.columns(3)
+        r = df_f[df_f['tipo'] == 'Receita']['valor'].sum()
+        d = df_f[df_f['tipo'] != 'Receita']['valor'].sum()
+        m1.metric("Receitas", f"R$ {r:,.2f}")
+        m2.metric("Despesas", f"R$ {d:,.2f}")
+        m3.metric("Saldo", f"R$ {r-d:,.2f}")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.plotly_chart(px.pie(df_f, values='valor', names='categoria', hole=0.5, title="Gastos").update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", showlegend=False), use_container_width=True)
+        with col2:
+            st.plotly_chart(px.line(df_f.groupby('data')['valor'].sum().reset_index(), x='data', y='valor', title="Evolução").update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white"), use_container_width=True)
+        
+        st.dataframe(df_f[['data', 'descricao', 'categoria', 'tipo', 'valor']].sort_values('data', ascending=False), use_container_width=True)
+
+# --- ABA 2: LANÇAMENTO ---
+elif aba == "➕ Novo Lançamento":
+    st.markdown("<h1>➕ Novo Lançamento</h1>", unsafe_allow_html=True)
+    with st.form("add"):
+        c1, c2 = st.columns(2)
+        dt = c1.date_input("Data", date.today(), format="DD/MM/YYYY")
+        ds = c1.text_input("Descrição")
+        vl = c2.number_input("Valor", min_value=0.0)
+        tp = c2.selectbox("Tipo", ["Receita", "Despesa"])
+        ct = st.selectbox("Categoria", ["Salário", "Moradia", "Lazer", "Alimentação", "Transporte"])
+        pr = st.number_input("Parcelas (Meses)", min_value=1, value=1)
+        if st.form_submit_button("SALVAR REGISTRO"):
+            itens = [{"data": (pd.to_datetime(dt) + pd.DateOffset(months=i)).strftime('%Y-%m-%d'), "descricao": f"{ds} ({i+1}/{pr})" if pr > 1 else ds, "valor": float(vl/pr), "tipo": tp, "categoria": ct, "created_by": st.session_state.usuario} for i in range(int(pr))]
+            conn.client.table("lancamentos").insert(itens).execute()
+            st.cache_data.clear()
+            st.success("Salvo!")
+            st.rerun()
+
+# --- ABA 3: GERENCIAR ---
+elif aba == "⚙️ Gerenciar":
+    st.markdown("<h1>⚙️ Gerenciamento</h1>", unsafe_allow_html=True)
+    t1, t2 = st.tabs(["✏️ Editar/Excluir", "🛠️ Configurações"])
+    with t1:
+        if not df_raw.empty:
+            df_raw['display'] = df_raw['data'].astype(str) + " - " + df_raw['descricao']
+            sel = st.selectbox("Item:", df_raw['id'].tolist(), format_func=lambda x: df_raw.loc[df_raw['id']==x, 'display'].values[0])
+            item = df_raw[df_raw['id'] == sel].iloc[0]
+            with st.form("edit"):
+                n_ds = st.text_input("Descrição", item['descricao'])
+                n_vl = st.number_input("Valor", value=float(item['valor']))
+                if st.form_submit_button("ATUALIZAR"):
+                    conn.client.table("lancamentos").update({"descricao": n_ds, "valor": n_vl}).eq("id", sel).execute()
+                    st.cache_data.clear()
+                    st.rerun()
