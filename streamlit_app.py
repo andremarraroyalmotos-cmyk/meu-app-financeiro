@@ -19,7 +19,7 @@ if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if 'usuario' not in st.session_state: st.session_state.usuario = None
 if 'nome_exibicao' not in st.session_state: st.session_state.nome_exibicao = "Usuário"
 
-# --- 4. CSS: BOTÕES E CENTRALIZAÇÃO ---
+# --- 4. CSS: BOTÕES, LOGO E CENTRALIZAÇÃO ---
 st.markdown("""
     <style>
     .stApp {
@@ -43,22 +43,25 @@ st.markdown("""
         width: 100%;
     }
 
-    /* BOTÕES: TEXTO AZUL MARINHO SÓLIDO */
+    /* BOTÕES COM TEXTO AZUL MARINHO SÓLIDO */
     div.stButton > button, div.stFormSubmitButton > button {
         background-color: #FFFFFF !important;
         border: 1px solid #FFFFFF !important;
         border-radius: 10px !important;
         height: 48px !important;
+        width: 100% !important;
         box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
     }
 
     div.stButton > button p, div.stFormSubmitButton > button p {
         color: #1E3A8A !important;
         font-weight: 800 !important;
+        font-size: 1rem !important;
     }
 
     h1, h2, h3, label, p, [data-testid="stMetricValue"] { color: white !important; }
     input, select, textarea { background-color: white !important; color: #1E3A8A !important; }
+    .main .block-container { padding-top: 2rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -68,7 +71,16 @@ if not st.session_state.autenticado:
     _, col_central, _ = st.columns([1, 1.8, 1])
     with col_central:
         st.markdown('<div class="login-box">', unsafe_allow_html=True)
-        st.markdown("<h1 style='text-align: center; font-size: 5rem; margin:0;'>💰</h1>", unsafe_allow_html=True)
+        
+        # LOGO RESTAURADA
+        l1, l2, l3 = st.columns([0.6, 1, 0.6])
+        with l2:
+            if os.path.exists("logo.png"):
+                st.image("logo.png", use_container_width=True)
+            else:
+                st.markdown("<h1 style='text-align: center; font-size: 5rem; margin:0;'>💰</h1>", unsafe_allow_html=True)
+        
+        st.markdown("<p style='text-align: center; opacity: 0.9; margin-top: -10px; margin-bottom: 25px;'>Inteligência Financeira</p>", unsafe_allow_html=True)
         
         t_log, t_reg, t_rec, t_sup = st.tabs(["🔐 Entrar", "📝 Cadastro", "🔑 Senha", "❔ Suporte"])
         
@@ -79,7 +91,8 @@ if not st.session_state.autenticado:
                 if st.form_submit_button("ACESSAR DASHBOARD"):
                     res = conn.client.table("usuarios").select("*").eq("email", e).eq("senha", s).execute()
                     if res.data:
-                        st.session_state.autenticado, st.session_state.usuario = True, res.data[0]['email']
+                        st.session_state.autenticado = True
+                        st.session_state.usuario = res.data[0]['email']
                         st.session_state.nome_exibicao = res.data[0]['nome']
                         st.rerun()
                     else: st.error("Erro no login.")
@@ -90,16 +103,16 @@ if not st.session_state.autenticado:
                     conn.client.table("usuarios").insert({"email": em, "senha": se, "nome": n}).execute()
                     st.success("Sucesso!")
         with t_rec:
-            with st.form("rec"):
-                st.text_input("E-mail")
+            with st.form("rec_form"):
+                st.text_input("E-mail para recuperação")
                 st.form_submit_button("ENVIAR LINK")
         with t_sup:
             st.markdown("<p style='text-align:center;'>suporte@moneyflow.pro</p>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
-# --- 6. LOGADO: CARREGAMENTO DE OPÇÕES ---
-st.sidebar.markdown(f"<p style='text-align: center;'>Olá, <b>{st.session_state.nome_exibicao}</b></p>", unsafe_allow_html=True)
+# --- 6. SIDEBAR E CARREGAMENTO ---
+st.sidebar.markdown(f"<br><p style='text-align: center;'>Olá, <b>{st.session_state.nome_exibicao}</b></p>", unsafe_allow_html=True)
 aba = st.sidebar.radio("Navegação", ["📊 Dashboard", "➕ Novo Lançamento", "⚙️ Gerenciar"])
 if st.sidebar.button("🚪 SAIR"):
     st.session_state.autenticado = False
@@ -109,23 +122,16 @@ def carregar_opcoes(chave):
     try:
         res = conn.client.table("configuracoes").select("valor").eq("created_by", st.session_state.usuario).eq("chave", chave).execute()
         return [item['valor'] for item in res.data]
-    except: return [] # Retorna vazio se a tabela não existir
+    except: return []
+
+df_raw = conn.client.table("lancamentos").select("*").eq("created_by", st.session_state.usuario).execute()
+df_raw = pd.DataFrame(df_raw.data)
+if not df_raw.empty:
+    df_raw['data'] = pd.to_datetime(df_raw['data']).dt.date
+    df_raw['valor'] = pd.to_numeric(df_raw['valor'])
 
 tipos_disp = sorted(list(set(["Receita", "Despesa", "Investimento"] + carregar_opcoes("tipo"))))
 cats_disp = sorted(list(set(["Salário", "Moradia", "Lazer", "Alimentação"] + carregar_opcoes("categoria"))))
-
-@st.cache_data(ttl=5)
-def carregar_dados():
-    try:
-        res = conn.client.table("lancamentos").select("*").eq("created_by", st.session_state.usuario).execute()
-        df = pd.DataFrame(res.data)
-        if not df.empty:
-            df['data'] = pd.to_datetime(df['data']).dt.date
-            df['valor'] = pd.to_numeric(df['valor'])
-        return df
-    except: return pd.DataFrame()
-
-df_raw = carregar_dados()
 
 # --- 7. DASHBOARD ---
 if aba == "📊 Dashboard":
@@ -139,21 +145,21 @@ if aba == "📊 Dashboard":
         m1.metric("Receitas", f"R$ {r:,.2f}"); m2.metric("Despesas", f"R$ {d:,.2f}"); m3.metric("Saldo", f"R$ {r-d:,.2f}")
         
         col1, col2 = st.columns(2)
-        with col1: st.plotly_chart(px.pie(df_f, values='valor', names='categoria', hole=0.5).update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", showlegend=False), use_container_width=True)
-        with col2: st.plotly_chart(px.line(df_f.groupby('data')['valor'].sum().reset_index(), x='data', y='valor').update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white"), use_container_width=True)
+        with col1: st.plotly_chart(px.pie(df_f, values='valor', names='categoria', hole=0.5, title="Gastos").update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white"), use_container_width=True)
+        with col2: st.plotly_chart(px.line(df_f.groupby('data')['valor'].sum().reset_index(), x='data', y='valor', title="Fluxo").update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white"), use_container_width=True)
         st.dataframe(df_f[['data', 'descricao', 'categoria', 'tipo', 'valor']].sort_values('data', ascending=False), use_container_width=True)
 
 # --- 8. NOVO LANÇAMENTO ---
 elif aba == "➕ Novo Lançamento":
     st.markdown("<h1>➕ Novo Registro</h1>", unsafe_allow_html=True)
-    with st.form("add"):
+    with st.form("form_add"):
         c_a, c_b = st.columns(2)
         with c_a: dt, ds, vl = st.date_input("Data"), st.text_input("Descrição"), st.number_input("Valor", min_value=0.0)
         with c_b: tp, ct, pr = st.selectbox("Tipo", tipos_disp), st.selectbox("Categoria", cats_disp), st.number_input("Parcelas", 1)
         if st.form_submit_button("SALVAR"):
             itens = [{"data": (pd.to_datetime(dt) + pd.DateOffset(months=i)).strftime('%Y-%m-%d'), "descricao": f"{ds} ({i+1}/{pr})" if pr > 1 else ds, "valor": float(vl/pr), "tipo": tp, "categoria": ct, "created_by": st.session_state.usuario} for i in range(int(pr))]
             conn.client.table("lancamentos").insert(itens).execute()
-            st.cache_data.clear(); st.success("Salvo!"); st.rerun()
+            st.success("Salvo!"); time.sleep(1); st.rerun()
 
 # --- 9. GERENCIAR ---
 elif aba == "⚙️ Gerenciar":
@@ -164,29 +170,30 @@ elif aba == "⚙️ Gerenciar":
             df_raw['display'] = df_raw['data'].astype(str) + " - " + df_raw['descricao']
             sel_id = st.selectbox("Item:", df_raw['id'].tolist(), format_func=lambda x: df_raw.loc[df_raw['id'] == x, 'display'].values[0])
             item = df_raw[df_raw['id'] == sel_id].iloc[0]
-            with st.form("edit"):
+            with st.form("edit_f"):
                 n_ds, n_vl = st.text_input("Descrição", item['descricao']), st.number_input("Valor", value=float(item['valor']))
-                if st.form_submit_button("ATUALIZAR"):
+                c1, c2 = st.columns(2)
+                if c1.form_submit_button("ATUALIZAR"):
                     conn.client.table("lancamentos").update({"descricao": n_ds, "valor": n_vl}).eq("id", sel_id).execute()
-                    st.cache_data.clear(); st.rerun()
-                if st.form_submit_button("EXCLUIR"):
+                    st.rerun()
+                if c2.form_submit_button("EXCLUIR"):
                     conn.client.table("lancamentos").delete().eq("id", sel_id).execute()
-                    st.cache_data.clear(); st.rerun()
+                    st.rerun()
     with t2:
         c1, c2 = st.columns(2)
         with c1:
-            with st.form("t"):
+            with st.form("f_t"):
                 nt = st.text_input("Novo Tipo")
-                if st.form_submit_button("ADICIONAR"):
+                if st.form_submit_button("ADD TIPO"):
                     try:
                         conn.client.table("configuracoes").insert({"chave": "tipo", "valor": nt, "created_by": st.session_state.usuario}).execute()
-                        st.success("Adicionado!"); time.sleep(1); st.rerun()
+                        st.success("Adicionado!"); st.rerun()
                     except: st.error("Erro no banco. Execute o comando SQL no Supabase.")
         with c2:
-            with st.form("c"):
+            with st.form("f_c"):
                 nc = st.text_input("Nova Categoria")
-                if st.form_submit_button("ADICIONAR"):
+                if st.form_submit_button("ADD CATEGORIA"):
                     try:
                         conn.client.table("configuracoes").insert({"chave": "categoria", "valor": nc, "created_by": st.session_state.usuario}).execute()
-                        st.success("Adicionado!"); time.sleep(1); st.rerun()
+                        st.success("Adicionado!"); st.rerun()
                     except: st.error("Erro no banco.")
