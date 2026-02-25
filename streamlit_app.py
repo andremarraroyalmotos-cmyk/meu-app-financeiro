@@ -97,6 +97,29 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# --- ADICIONE ESTE BLOCO LOGO APÓS O CSS E ANTES DO MENU DE NAVEGAÇÃO ---
+
+# Tentativa de carregar a logo
+import os
+
+# Caminho da sua logo (certifique-se de que o arquivo está na mesma pasta do script)
+logo_path = "logo.png" 
+
+if os.path.exists(logo_path):
+    st.sidebar.image(logo_path, use_container_width=True)
+else:
+    # Caso a imagem não exista, ele coloca um título estilizado no lugar
+    st.sidebar.markdown("""
+        <div style='text-align: center; padding: 10px; border: 2px solid rgba(255,255,255,0.3); border-radius: 15px; margin-bottom: 20px;'>
+            <h2 style='color: white; margin: 0;'>💰 MONEYFLOW</h2>
+            <small style='color: rgba(255,255,255,0.7);'>PRO VERSION</small>
+        </div>
+    """, unsafe_allow_html=True)
+
+st.sidebar.markdown(f"**Olá, {st.session_state.nome_exibicao}**")
+# ... restante do seu código (radio botões, etc)
+
+
 # --- 5. TELA DE LOGIN (ESTRUTURA IMAGEM 99) ---
 if not st.session_state.autenticado:
     _, col_central, _ = st.columns([1, 1.8, 1])
