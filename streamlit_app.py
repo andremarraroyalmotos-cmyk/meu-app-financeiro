@@ -19,7 +19,7 @@ if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if 'usuario' not in st.session_state: st.session_state.usuario = None
 if 'nome_exibicao' not in st.session_state: st.session_state.nome_exibicao = "Usuário"
 
-# --- 4. CSS: CORREÇÃO DE CORES E FUNCIONALIDADES ---
+# --- 4. CSS: CORREÇÃO DEFINITIVA DE VISIBILIDADE DOS BOTÕES ---
 st.markdown("""
     <style>
     .stApp {
@@ -45,17 +45,28 @@ st.markdown("""
         width: 100%;
     }
 
-    /* BOTÕES: Fundo Branco Sólido e Letras Azul Marinho Sólidas */
+    /* --- AJUSTE DOS BOTÕES: TEXTO AZUL ESCURO PARA MÁXIMA VISIBILIDADE --- */
     div.stButton > button, div.stFormSubmitButton > button {
         background-color: #FFFFFF !important;
-        color: #1E3A8A !important;
-        opacity: 1 !important;
-        border-radius: 10px !important;
         border: 1px solid #FFFFFF !important;
-        font-weight: bold !important;
+        border-radius: 10px !important;
         height: 48px !important;
         width: 100% !important;
         box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
+        transition: all 0.2s ease;
+    }
+
+    /* Forçando a cor do texto no botão em todos os estados possíveis */
+    div.stButton > button p, div.stFormSubmitButton > button p {
+        color: #1E3A8A !important;
+        font-weight: 800 !important;
+        font-size: 1rem !important;
+    }
+    
+    /* Hover (quando passa o mouse) */
+    div.stButton > button:hover {
+        background-color: #f0f2f6 !important;
+        border-color: #1E3A8A !important;
     }
 
     h1, h2, h3, label, p, [data-testid="stMetricValue"] { color: white !important; }
@@ -141,7 +152,7 @@ df_raw = carregar_dados()
 tipos_disp = list(set(["Receita", "Despesa", "Investimento"] + carregar_opcoes("tipo")))
 cats_disp = list(set(["Salário", "Moradia", "Lazer", "Alimentação"] + carregar_opcoes("categoria")))
 
-# --- 7. DASHBOARD (COM GRÁFICOS) ---
+# --- 7. DASHBOARD ---
 if aba == "📊 Dashboard":
     st.markdown("<h1>📊 Dashboard</h1>", unsafe_allow_html=True)
     if not df_raw.empty:
@@ -180,7 +191,7 @@ elif aba == "➕ Novo Lançamento":
             st.success("Salvo!")
             st.rerun()
 
-# --- 9. GERENCIAR (RESTAURADO COMPLETO) ---
+# --- 9. GERENCIAR ---
 elif aba == "⚙️ Gerenciar":
     st.markdown("<h1>⚙️ Gerenciamento</h1>", unsafe_allow_html=True)
     t1, t2 = st.tabs(["✏️ Editar / Excluir", "🛠️ Configurar Listas"])
@@ -207,13 +218,13 @@ elif aba == "⚙️ Gerenciar":
         c1, c2 = st.columns(2)
         with c1:
             with st.form("f_t"):
-                nt = st.text_input("Novo Tipo (Ex: Cartão)")
+                nt = st.text_input("Novo Tipo")
                 if st.form_submit_button("ADD TIPO"):
                     conn.client.table("configuracoes").insert({"chave": "tipo", "valor": nt, "created_by": st.session_state.usuario}).execute()
                     st.rerun()
         with c2:
             with st.form("f_c"):
-                nc = st.text_input("Nova Categoria (Ex: Pet)")
+                nc = st.text_input("Nova Categoria")
                 if st.form_submit_button("ADD CATEGORIA"):
                     conn.client.table("configuracoes").insert({"chave": "categoria", "valor": nc, "created_by": st.session_state.usuario}).execute()
                     st.rerun()
