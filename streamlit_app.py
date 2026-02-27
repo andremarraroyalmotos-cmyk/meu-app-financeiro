@@ -49,11 +49,8 @@ if not st.session_state.autenticado:
                     email = st.text_input("E-mail")
                     senha = st.text_input("Senha", type="password")
                     if st.form_submit_button("ACESSAR DASHBOARD", use_container_width=True):
-                      try:
-    res = conn.client.table("usuarios").select("*").eq("email", email).eq("senha", senha).execute()
-except Exception as e:
-    st.error(f"Erro de conexão com o banco: {e}")
-    st.stop()
+                      try: res = conn.client.table("usuarios").select("*").eq("email", email).eq("senha", senha).execute()
+except Exception as e: st.error(f"Erro de conexão com o banco: {e}") st.stop()
                         # Consulta no Supabase
                         res = conn.client.table("usuarios").select("*").eq("email", email).eq("senha", senha).execute()
                         if res.data:
