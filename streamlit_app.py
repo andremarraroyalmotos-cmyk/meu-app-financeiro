@@ -4,16 +4,27 @@ import pandas as pd
 from datetime import date, timedelta
 import time
 
-# --- 1. CONFIGURAÇÃO E LIMPEZA DE INTERFACE ---
+# --- 1. CONFIGURAÇÃO E LIMPEZA DE INTERFACE (Reforçada) ---
 st.set_page_config(page_title="MoneyFlow Pro", layout="wide", initial_sidebar_state="collapsed")
 
-# CSS para esconder o que é possível do Streamlit
 st.markdown("""
     <style>
-    header, footer, .stAppDeployButton, #MainMenu {
+    /* Esconde o Header (Topo) */
+    [data-testid="stHeader"] {display: none !important;}
+    
+    /* Esconde o Footer (Rodapé completo) */
+    footer {display: none !important;}
+    
+    /* Esconde o botão de Deploy e o Menu de Hambúrguer */
+    .stAppDeployButton, #MainMenu {display: none !important;}
+
+    /* Remove a barra cinza/preta que o Streamlit Cloud coloca no rodapé */
+    .st-emotion-cache-kn0syu, .st-emotion-cache-1wb5ace {
         display: none !important;
         visibility: hidden !important;
     }
+
+    /* Ajusta o espaçamento para o conteúdo subir */
     .block-container {
         padding-top: 1rem !important;
         padding-bottom: 0rem !important;
@@ -21,7 +32,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONEXÃO ---
+# --- 2. CONEXÃO (Lógica Intocada) ---
 url = "https://oirdbzrgwmohqcmhlhas.supabase.co"
 key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9pcmRienJnd21vaHFjbWhsaGFzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTg0NjgzOSwiZXhwIjoyMDg3NDIyODM5fQ.zVJh2FzRdMaMfj56mWSxhBmPJKvUKWQE6xUass4-yIM"
 conn = st.connection("supabase", type=SupabaseConnection, url=url, key=key)
@@ -31,7 +42,7 @@ if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if 'usuario' not in st.session_state: st.session_state.usuario = None
 if 'aba' not in st.session_state: st.session_state.aba = "🏠 Home"
 
-# --- 4. TELA DE ACESSO (RESTAURADA PARA O QUE FUNCIONAVA) ---
+# --- 4. TELA DE ACESSO ---
 if not st.session_state.autenticado:
     st.markdown("<h1 style='text-align: center;'>💰 MoneyFlow Pro</h1>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -42,7 +53,6 @@ if not st.session_state.autenticado:
                 e = st.text_input("E-mail")
                 s = st.text_input("Senha", type="password")
                 if st.form_submit_button("ENTRAR", use_container_width=True):
-                    # Lógica original que funcionava
                     res = conn.client.table("usuarios").select("*").eq("email", e).eq("senha", s).execute()
                     if res.data:
                         st.session_state.autenticado = True
@@ -51,12 +61,6 @@ if not st.session_state.autenticado:
                         st.rerun()
                     else:
                         st.error("Login inválido.")
-        with t_acesso[1]:
-            with st.form("cadastro"):
-                n_n, e_n, s_n = st.text_input("Nome"), st.text_input("E-mail"), st.text_input("Senha", type="password")
-                if st.form_submit_button("CADASTRAR", use_container_width=True):
-                    conn.client.table("usuarios").insert({"nome": n_n, "email": e_n, "senha": s_n}).execute()
-                    st.success("Conta criada!")
     st.stop()
 
 # --- 5. CARREGAMENTO DE DADOS ---
