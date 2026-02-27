@@ -7,36 +7,45 @@ import time
 # --- 1. CONFIGURAÇÃO E LIMPEZA TOTAL DE INTERFACE ---
 st.set_page_config(page_title="MoneyFlow Pro", layout="wide", initial_sidebar_state="collapsed")
 
-# CSS Reforçado para esconder TUDO (topo, rodapé, botões de host e menus)
 st.markdown("""
     <style>
-    /* Esconde o Header (Topo) */
-    header[data-testid="stHeader"] {display: none !important;}
-    
-    /* Esconde o Footer (Rodapé "Made with Streamlit") */
-    footer {display: none !important;}
-    
-    /* Esconde botões de Deploy e menus adicionais */
-    .stAppDeployButton {display: none !important;}
-    #MainMenu {visibility: hidden !important;}
-    
-    /* Remove espaços vazios deixados pelos elementos escondidos */
-    .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 0rem !important;
+    /* Esconde o Header e qualquer barra no topo */
+    header, [data-testid="stHeader"], .st-emotion-cache-18ni7ve, .stAppDeployButton {
+        display: none !important;
+        height: 0;
+        width: 0;
     }
     
-    /* Garante que o fundo ocupe a tela toda sem barras brancas */
+    /* Esconde o Footer e o Toolbar inferior */
+    footer, [data-testid="stFooter"], .st-emotion-cache-kn0syu, .st-emotion-cache-1wb5ace {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    
+    /* Remove o menu de hambúrguer e opções de desenvolvedor */
+    #MainMenu, .st-emotion-cache-1rs6os {
+        visibility: hidden !important;
+    }
+    
+    /* Remove o padding (espaço) que sobra no topo e na base */
+    .block-container {
+        padding-top: 0px !important;
+        padding-bottom: 0px !important;
+        margin-top: -30px !important;
+    }
+
+    /* Esconde especificamente a barra de "Manage App" do Streamlit Cloud */
+    #viewer-badge, .viewer-badge {
+        display: none !important;
+    }
+    
+    /* Força o conteúdo a ocupar o espaço do rodapé */
     .stApp {
         bottom: 0 !important;
+        height: 100vh !important;
     }
     </style>
     """, unsafe_allow_html=True)
-
-url = "https://oirdbzrgwmohqcmhlhas.supabase.co"
-key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9pcmRienJnd21vaHFjbWhsaGFzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTg0NjgzOSwiZXhwIjoyMDg3NDIyODM5fQ.zVJh2FzRdMaMfj56mWSxhBmPJKvUKWQE6xUass4-yIM"
-
-conn = st.connection("supabase", type=SupabaseConnection, url=url, key=key)
 
 # --- 2. ESTADOS DE SESSÃO ---
 if 'autenticado' not in st.session_state: st.session_state.autenticado = False
