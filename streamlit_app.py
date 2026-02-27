@@ -45,12 +45,24 @@ if not st.session_state.autenticado:
             aba_login, aba_reg = st.tabs(["🔐 Entrar", "📝 Criar Conta"])
             
             with aba_login:
-                with st.form("login_form"):
-                    email = st.text_input("E-mail")
-                    senha = st.text_input("Senha", type="password")
-                    if st.form_submit_button("ACESSAR DASHBOARD", use_container_width=True):
-                      try: res = conn.client.table("usuarios").select("*").eq("email", email).eq("senha", senha).execute()
-except Exception as e: st.error(f"Erro de conexão com o banco: {e}") st.stop()
+               with st.form("login_form"):
+            email = st.text_input("E-mail")
+            senha = st.text_input("Senha", type="password")
+            
+            if st.form_submit_button("ACESSAR DASHBOARD", use_container_width=True):
+                # A partir daqui, as linhas precisam de 4 espaços extras de recuo
+                try:
+                    res = conn.client.table("usuarios").select("*").eq("email", email).eq("senha", senha).execute()
+                    
+                    if res.data:
+                        st.session_state.autenticado = True
+                        st.session_state.usuario = res.data[0]['email']
+                        st.session_state.nome_exibicao = res.data[0]['nome']
+                        st.rerun()
+                    else:
+                        st.error("E-mail ou senha incorretos.")
+                except Exception as e:
+                    st.error(f"Erro ao acessar o banco de dados: {e}")
                         # Consulta no Supabase
                         res = conn.client.table("usuarios").select("*").eq("email", email).eq("senha", senha).execute()
                         if res.data:
