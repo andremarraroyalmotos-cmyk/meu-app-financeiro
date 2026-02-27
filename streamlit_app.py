@@ -7,7 +7,12 @@ import time
 import os
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="MoneyFlow Pro", layout="wide", page_icon="💰")
+st.set_page_config(
+    page_title="MoneyFlow Pro", 
+    layout="wide", 
+    page_icon="💰",
+    initial_sidebar_state="auto"
+)
 
 # --- 2. CONEXÃO SUPABASE ---
 conn = st.connection("supabase", type=SupabaseConnection, 
@@ -19,9 +24,10 @@ if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if 'usuario' not in st.session_state: st.session_state.usuario = None
 if 'nome_exibicao' not in st.session_state: st.session_state.nome_exibicao = "Usuário"
 
-# --- 4. CSS: BOTÕES, LOGO E CENTRALIZAÇÃO ---
+# --- 4. CSS: BOTÕES, LOGO E RESPONSIVIDADE ---
 st.markdown("""
     <style>
+    /* Fundo Principal */
     .stApp {
         background: linear-gradient(135deg, #0093E9 0%, #80D0C7 50%, #931ca1 100%) !important;
         background-attachment: fixed;
@@ -29,46 +35,57 @@ st.markdown("""
     header {visibility: hidden;}
     [data-testid="stSidebar"] { background-color: #1E3A8A !important; }
     
+    /* Containers Glassmorphism */
     [data-testid="stForm"], div.stMetric, .stTabs, .stDataFrame {
         background: rgba(255, 255, 255, 0.1) !important;
         backdrop-filter: blur(15px);
         border-radius: 20px !important;
         border: 1px solid rgba(255, 255, 255, 0.2) !important;
         padding: 20px !important;
+        margin-bottom: 15px !important;
     }
 
-    .login-box .stTabs [data-baseweb="tab-list"] {
-        display: flex;
-        justify-content: center;
-        width: 100%;
-    }
-
-    /* BOTÕES: TEXTO AZUL MARINHO SÓLIDO */
+    /* BOTÕES: VISIBILIDADE MÁXIMA */
     div.stButton > button, div.stFormSubmitButton > button {
         background-color: #FFFFFF !important;
         border: 1px solid #FFFFFF !important;
         border-radius: 10px !important;
-        height: 48px !important;
+        height: 52px !important;
         width: 100% !important;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1) !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+        transition: all 0.3s ease;
     }
 
+    /* Forçando a cor do texto no botão */
     div.stButton > button p, div.stFormSubmitButton > button p {
         color: #1E3A8A !important;
         font-weight: 800 !important;
-        font-size: 1rem !important;
+        font-size: 1.1rem !important;
+        text-transform: uppercase;
+    }
+
+    /* AJUSTES PARA CELULAR (RESPONSIVIDADE) */
+    @media (max-width: 768px) {
+        .main .block-container { padding: 1rem !important; }
+        h1 { font-size: 1.8rem !important; }
+        [data-testid="stMetricValue"] { font-size: 1.6rem !important; }
+        
+        /* Forçar colunas a empilharem no celular */
+        [data-testid="column"] {
+            width: 100% !important;
+            flex: 1 1 100% !important;
+        }
     }
 
     h1, h2, h3, label, p, [data-testid="stMetricValue"] { color: white !important; }
     input, select, textarea { background-color: white !important; color: #1E3A8A !important; }
-    .main .block-container { padding-top: 2rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
 # --- 5. TELA DE LOGIN ---
 if not st.session_state.autenticado:
     st.markdown("<style>[data-testid='stSidebar'] {display: none;}</style>", unsafe_allow_html=True)
-    _, col_central, _ = st.columns([1, 1.8, 1])
+    _, col_central, _ = st.columns([0.2, 1.8, 0.2]) # Mais largo no celular
     with col_central:
         st.markdown('<div class="login-box">', unsafe_allow_html=True)
         l1, l2, l3 = st.columns([0.6, 1, 0.6])
@@ -121,8 +138,8 @@ def carregar_opcoes(chave):
         return [item['valor'] for item in res.data]
     except: return []
 
-df_raw = conn.client.table("lancamentos").select("*").eq("created_by", st.session_state.usuario).execute()
-df_raw = pd.DataFrame(df_raw.data)
+df_raw_res = conn.client.table("lancamentos").select("*").eq("created_by", st.session_state.usuario).execute()
+df_raw = pd.DataFrame(df_raw_res.data)
 if not df_raw.empty:
     df_raw['data'] = pd.to_datetime(df_raw['data']).dt.date
     df_raw['valor'] = pd.to_numeric(df_raw['valor'])
@@ -138,12 +155,19 @@ if aba == "📊 Dashboard":
         d_i, d_f = c1.date_input("Início", df_raw['data'].min()), c2.date_input("Fim", date.today())
         df_f = df_raw[(df_raw['data'] >= d_i) & (df_raw['data'] <= d_f)].copy()
         r, d = df_f[df_f['tipo'] == 'Receita']['valor'].sum(), df_f[df_f['tipo'] != 'Receita']['valor'].sum()
+        
+        # Métricas em colunas (que empilham no mobile)
         m1, m2, m3 = st.columns(3)
-        m1.metric("Receitas", f"R$ {r:,.2f}"); m2.metric("Despesas", f"R$ {d:,.2f}"); m3.metric("Saldo", f"R$ {r-d:,.2f}")
+        m1.metric("Receitas", f"R$ {r:,.2f}")
+        m2.metric("Despesas", f"R$ {d:,.2f}")
+        m3.metric("Saldo", f"R$ {r-d:,.2f}")
         
         col1, col2 = st.columns(2)
-        with col1: st.plotly_chart(px.pie(df_f, values='valor', names='categoria', hole=0.5, title="Gastos").update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white"), use_container_width=True)
-        with col2: st.plotly_chart(px.line(df_f.groupby('data')['valor'].sum().reset_index(), x='data', y='valor', title="Fluxo").update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white"), use_container_width=True)
+        with col1: 
+            st.plotly_chart(px.pie(df_f, values='valor', names='categoria', hole=0.5, title="Gastos").update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", showlegend=False), use_container_width=True)
+        with col2: 
+            st.plotly_chart(px.line(df_f.groupby('data')['valor'].sum().reset_index(), x='data', y='valor', title="Fluxo").update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white"), use_container_width=True)
+        
         st.dataframe(df_f[['data', 'descricao', 'categoria', 'tipo', 'valor']].sort_values('data', ascending=False), use_container_width=True)
 
 # --- 8. NOVO LANÇAMENTO ---
@@ -182,7 +206,6 @@ elif aba == "⚙️ Gerenciar":
             with st.form("f_t"):
                 nt = st.text_input("Novo Tipo")
                 if st.form_submit_button("ADD TIPO"):
-                    # Salvamos e forçamos o sucesso, já que você confirmou que está adicionando
                     conn.client.table("configuracoes").insert({"chave": "tipo", "valor": nt, "created_by": st.session_state.usuario}).execute()
                     st.success(f"Tipo '{nt}' adicionado!"); time.sleep(1); st.rerun()
         with c2:
