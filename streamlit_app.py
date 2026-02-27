@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import date, timedelta
 import time
 
-# --- 1. CONFIGURAÇÃO E CONEXÃO (SUAS CHAVES ORIGINAIS PRESERVADAS) ---
+# --- 1. CONFIGURAÇÃO E CONEXÃO ---
 st.set_page_config(page_title="MoneyFlow Pro", layout="wide", initial_sidebar_state="collapsed")
 
 url = "https://oirdbzrgwmohqcmhlhas.supabase.co"
@@ -18,7 +18,7 @@ if 'usuario' not in st.session_state: st.session_state.usuario = None
 if 'nome_exibicao' not in st.session_state: st.session_state.nome_exibicao = "Usuário"
 if 'aba' not in st.session_state: st.session_state.aba = "🏠 Home"
 
-# --- 3. CSS "BASE44" (DESIGN E SINALIZADORES) ---
+# --- 3. CSS "BASE44" ---
 st.markdown("""
     <style>
     .stApp { background-color: #F8FAFC !important; }
@@ -26,45 +26,31 @@ st.markdown("""
     .card-resumo { background: #1E293B; padding:25px; border-radius:25px; color:white; margin-bottom:20px; }
     .item-transacao { background: white; padding: 15px; border-radius: 20px; margin-bottom:10px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
     .card-cartao { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 15px; border-left: 10px solid #10B981; }
-    .stButton>button { border-radius: 12px; font-weight: 600; height: 45px; width: 100%; }
+    .stButton>button { border-radius: 12px; font-weight: 600; }
     [data-testid="stForm"] { border-radius: 25px; border: 1px solid #E2E8F0; background: white; padding: 30px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. TELA DE LOGIN (SUA LÓGICA ORIGINAL) ---
+# --- 4. TELA DE LOGIN ---
 if not st.session_state.autenticado:
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         st.markdown("<h1 style='text-align:center; padding-top:50px;'>💰 MoneyFlow</h1>", unsafe_allow_html=True)
-        tab_log, tab_reg = st.tabs(["Entrar", "Criar Conta"])
-        
-        with tab_log:
+        t1, t2 = st.tabs(["Entrar", "Criar Conta"])
+        with t1:
             with st.form("login"):
-                email = st.text_input("E-mail")
-                senha = st.text_input("Senha", type="password")
-                if st.form_submit_button("ACESSAR"):
-                    res = conn.client.table("usuarios").select("*").eq("email", email).eq("senha", senha).execute()
+                e = st.text_input("E-mail")
+                s = st.text_input("Senha", type="password")
+                if st.form_submit_button("ACESSAR", use_container_width=True):
+                    res = conn.client.table("usuarios").select("*").eq("email", e).eq("senha", s).execute()
                     if res.data:
-                        st.session_state.autenticado = True
-                        st.session_state.usuario = res.data[0]['email']
-                        st.session_state.nome_exibicao = res.data[0]['nome']
+                        st.session_state.autenticado, st.session_state.usuario, st.session_state.nome_exibicao = True, res.data[0]['email'], res.data[0]['nome']
                         st.rerun()
-                    else:
-                        st.error("Login inválido.")
-        
-        with tab_reg:
-            with st.form("registro"):
-                n_nome = st.text_input("Nome")
-                n_email = st.text_input("E-mail")
-                n_senha = st.text_input("Senha", type="password")
-                if st.form_submit_button("CADASTRAR"):
-                    conn.client.table("usuarios").insert({"email": n_email, "senha": n_senha, "nome": n_nome}).execute()
-                    st.success("Conta criada!")
+                    else: st.error("Login inválido.")
     st.stop()
 
-# --- 5. FUNÇÕES DE BUSCA (FORÇANDO ATUALIZAÇÃO DO BANCO) ---
+# --- 5. CARREGAMENTO DE DADOS ---
 def carregar_dados():
-    # Sem cache para garantir que novos tipos apareçam na hora
     l = conn.client.table("lancamentos").select("*").eq("created_by", st.session_state.usuario).execute().data
     c = conn.client.table("categorias").select("*").execute().data
     cc = conn.client.table("contas_cartoes").select("*").execute().data
@@ -72,9 +58,8 @@ def carregar_dados():
 
 df_lan, df_cat, df_con = carregar_dados()
 
-# --- 6. CABEÇALHO E MENU ---
+# --- 6. MENU ---
 st.markdown(f"### Olá, {st.session_state.nome_exibicao} 👋")
-
 c1, c2, c3, c4 = st.columns(4)
 if c1.button("🏠 Home"): st.session_state.aba = "🏠 Home"
 if c2.button("➕ Novo"): st.session_state.aba = "➕ Novo"
@@ -86,100 +71,88 @@ if c4.button("⚙️ Ajustes"): st.session_state.aba = "⚙️ Ajustes"
 if st.session_state.aba == "🏠 Home":
     if not df_lan.empty:
         df_lan['valor'] = pd.to_numeric(df_lan['valor'])
-        r = df_lan[df_lan['tipo'] == 'Receita']['valor'].sum()
-        d = df_lan[df_lan['tipo'] != 'Receita']['valor'].sum()
+        r, d = df_lan[df_lan['tipo'] == 'Receita']['valor'].sum(), df_lan[df_lan['tipo'] != 'Receita']['valor'].sum()
         st.markdown(f'<div class="card-resumo"><small>Saldo Geral</small><h1>R$ {r-d:,.2f}</h1></div>', unsafe_allow_html=True)
-        
-        st.markdown("#### Histórico")
-        for _, row in df_lan.sort_values('data', ascending=False).head(15).iterrows():
+        st.markdown("#### Histórico Recente")
+        for _, row in df_lan.sort_values('data', ascending=False).head(10).iterrows():
             cor = "#10B981" if row['tipo'] == 'Receita' else "#EF4444"
-            st.markdown(f"""
-                <div class="item-transacao">
-                    <div><b>{row['descricao']}</b><br><small>{row['categoria']} • {row['data']}</small></div>
-                    <b style="color:{cor}">R$ {row['valor']:,.2f}</b>
-                </div>
-            """, unsafe_allow_html=True)
+            st.markdown(f'<div class="item-transacao"><div><b>{row["descricao"]}</b><br><small>{row["categoria"]} • {row["data"]}</small></div><b style="color:{cor}">R$ {row["valor"]:,.2f}</b></div>', unsafe_allow_html=True)
 
 elif st.session_state.aba == "➕ Novo":
     st.markdown("### Novo Lançamento")
-    with st.form("form_novo", clear_on_submit=True):
-        tipo = st.radio("Tipo", ["Despesa", "Receita"], horizontal=True)
-        desc = st.text_input("Descrição")
-        valor = st.number_input("Valor", min_value=0.0)
-        
-        # CATEGORIAS DINÂMICAS (Sempre atualizadas)
-        opcoes_cat = df_cat[df_cat['tipo'] == tipo]['nome'].tolist() if not df_cat.empty else ["Geral"]
-        cat = st.selectbox("Categoria", opcoes_cat)
-        
-        # SELEÇÃO DE CARTÃO/CONTA
-        opcoes_con = df_con['nome'].tolist() if not df_con.empty else ["Dinheiro"]
-        conta_vinculo = st.selectbox("Origem/Destino", opcoes_con)
-        
-        data = st.date_input("Data", date.today())
-        parcelas = st.number_input("Parcelas", min_value=1, value=1)
-        
-        if st.form_submit_button("GRAVAR LANÇAMENTO"):
-            v_p = valor / parcelas
-            for i in range(parcelas):
-                conn.client.table("lancamentos").insert({
-                    "data": str(data + timedelta(days=30*i)),
-                    "descricao": f"{desc} ({i+1}/{parcelas})" if parcelas > 1 else desc,
-                    "valor": v_p, "tipo": tipo, "categoria": cat, 
-                    "conta": conta_vinculo, "created_by": st.session_state.usuario
-                }).execute()
-            st.success("Lançamento gravado com sucesso!")
-            time.sleep(1)
-            st.rerun()
+    with st.form("f_novo"):
+        t = st.radio("Tipo", ["Despesa", "Receita"], horizontal=True)
+        desc, val = st.text_input("Descrição"), st.number_input("Valor", min_value=0.0)
+        cat = st.selectbox("Categoria", df_cat[df_cat['tipo'] == t]['nome'].tolist() if not df_cat.empty else ["Geral"])
+        con = st.selectbox("Conta/Cartão", df_con['nome'].tolist() if not df_con.empty else ["Dinheiro"])
+        dat, parc = st.date_input("Data", date.today()), st.number_input("Parcelas", min_value=1, value=1)
+        if st.form_submit_button("GRAVAR", use_container_width=True):
+            for i in range(parc):
+                conn.client.table("lancamentos").insert({"data": str(dat + timedelta(days=30*i)), "descricao": f"{desc} ({i+1}/{parc})" if parc > 1 else desc, "valor": val/parc, "tipo": t, "categoria": cat, "conta": con, "created_by": st.session_state.usuario}).execute()
+            st.success("Gravado!"); time.sleep(1); st.session_state.aba = "🏠 Home"; st.rerun()
 
 elif st.session_state.aba == "💳 Cartões":
-    st.markdown("### Meus Cartões e Limites")
-    
-    with st.expander("➕ Incluir Novo Cartão/Conta"):
-        with st.form("add_card"):
-            nome_c = st.text_input("Nome (Ex: Nubank, Itaú, Carteira)")
-            lim_c = st.number_input("Limite Total (Se conta corrente, use 0)", min_value=0.0)
-            if st.form_submit_button("SALVAR CARTÃO"):
-                conn.client.table("contas_cartoes").insert({"nome": nome_c, "limite": lim_c}).execute()
-                st.success("Cartão cadastrado!")
-                time.sleep(1)
-                st.rerun()
-
-    if not df_con.empty:
-        for _, conta in df_con.iterrows():
-            # Soma gastos desse cartão específico
-            gastos = 0
-            if not df_lan.empty and 'conta' in df_lan.columns:
-                gastos = df_lan[(df_lan['conta'] == conta['nome']) & (df_lan['tipo'] == 'Despesa')]['valor'].sum()
-            
-            disponivel = conta['limite'] - gastos
-            # Sinalizador de limite: vermelho se usar mais de 80%
-            uso = (gastos / conta['limite']) if conta['limite'] > 0 else 0
-            cor_alerta = "#EF4444" if uso > 0.8 else "#10B981"
-            
-            st.markdown(f"""
-                <div class="card-cartao" style="border-left: 10px solid {cor_alerta};">
-                    <div style="display:flex; justify-content:space-between;">
-                        <b style="color:#1E293B;">{conta['nome']}</b>
-                        <b style="color:{cor_alerta};">R$ {disponivel:,.2f} disp.</b>
-                    </div>
-                    <div style="background:#EDF2F7; height:8px; border-radius:4px; margin-top:10px;">
-                        <div style="background:{cor_alerta}; width:{min(uso*100, 100)}%; height:8px; border-radius:4px;"></div>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
+    st.markdown("### Meus Cartões")
+    for _, conta in df_con.iterrows():
+        gastos = df_lan[(df_lan['conta'] == conta['nome']) & (df_lan['tipo'] == 'Despesa')]['valor'].sum() if not df_lan.empty and 'conta' in df_lan.columns else 0
+        disp, uso = conta['limite'] - gastos, (gastos / conta['limite']) if conta['limite'] > 0 else 0
+        cor = "#EF4444" if uso > 0.8 else "#10B981"
+        st.markdown(f'<div class="card-cartao" style="border-left:10px solid {cor}"><div style="display:flex; justify-content:space-between"><b>{conta["nome"]}</b><b style="color:{cor}">R$ {disp:,.2f} disp.</b></div><div style="background:#EDF2F7; height:8px; border-radius:4px; margin-top:10px;"><div style="background:{cor}; width:{min(uso*100, 100)}%; height:8px; border-radius:4px;"></div></div></div>', unsafe_allow_html=True)
 
 elif st.session_state.aba == "⚙️ Ajustes":
-    st.markdown("#### Configurações de Tipos")
+    st.markdown("### Gerenciar Dados")
+    aba_edit, aba_cat, aba_cartao = st.tabs(["📝 Lançamentos", "🛠️ Categorias", "💳 Meus Cartões"])
     
-    with st.form("nova_categoria"):
-        nova_cat = st.text_input("Nome da Nova Categoria (Tipo)")
-        tipo_cat = st.selectbox("Fluxo", ["Despesa", "Receita"])
-        if st.form_submit_button("GRAVAR NOVO TIPO"):
-            if nova_cat:
-                conn.client.table("categorias").insert({"nome": nova_cat, "tipo": tipo_cat}).execute()
-                st.success(f"Tipo '{nova_cat}' gravado! Já disponível em 'Novo'.")
-                time.sleep(1)
+    with aba_edit:
+        if not df_lan.empty:
+            df_lan_sorted = df_lan.sort_values('data', ascending=False)
+            df_lan_sorted['selecao'] = df_lan_sorted['data'].astype(str) + " | " + df_lan_sorted['descricao']
+            esc = st.selectbox("Lançamento:", df_lan_sorted['selecao'].tolist())
+            id_sel = df_lan_sorted[df_lan_sorted['selecao'] == esc]['id'].values[0]
+            atu = df_lan[df_lan['id'] == id_sel].iloc[0]
+            with st.form("f_ed"):
+                nd, nv = st.text_input("Descrição", value=atu['descricao']), st.number_input("Valor", value=float(atu['valor']))
+                if st.form_submit_button("✅ SALVAR"):
+                    conn.client.table("lancamentos").update({"descricao": nd, "valor": nv}).eq("id", id_sel).execute()
+                    st.rerun()
+                if st.form_submit_button("🗑️ EXCLUIR"):
+                    conn.client.table("lancamentos").delete().eq("id", id_sel).execute()
+                    st.rerun()
+
+    with aba_cat:
+        with st.form("f_c"):
+            nc, tc = st.text_input("Nome Categoria"), st.selectbox("Fluxo", ["Despesa", "Receita"])
+            if st.form_submit_button("GRAVAR"):
+                conn.client.table("categorias").insert({"nome": nc, "tipo": tc}).execute()
                 st.rerun()
+
+    with aba_cartao:
+        st.markdown("#### Editar ou Excluir Cartões")
+        if not df_con.empty:
+            sel_card = st.selectbox("Selecione o Cartão/Conta:", df_con['nome'].tolist())
+            card_atu = df_con[df_con['nome'] == sel_card].iloc[0]
+            
+            with st.form("f_edit_card"):
+                novo_n_card = st.text_input("Nome do Cartão/Conta", value=card_atu['nome'])
+                novo_l_card = st.number_input("Limite Total", value=float(card_atu['limite']))
+                
+                c_c1, c_c2 = st.columns(2)
+                if c_c1.form_submit_button("✅ ATUALIZAR CARTÃO", use_container_width=True):
+                    conn.client.table("contas_cartoes").update({"nome": novo_n_card, "limite": novo_l_card}).eq("id", card_atu['id']).execute()
+                    st.success("Cartão atualizado!"); time.sleep(1); st.rerun()
+                
+                if c_c2.form_submit_button("🗑️ EXCLUIR CARTÃO", use_container_width=True):
+                    # Aviso importante: Excluir um cartão não exclui os lançamentos dele, mas eles ficarão "sem conta"
+                    conn.client.table("contas_cartoes").delete().eq("id", card_atu['id']).execute()
+                    st.warning("Cartão removido!"); time.sleep(1); st.rerun()
+        
+        st.markdown("---")
+        with st.expander("➕ Adicionar Novo Cartão"):
+            with st.form("f_new_card"):
+                nn, nl = st.text_input("Nome"), st.number_input("Limite", min_value=0.0)
+                if st.form_submit_button("CADASTRAR NOVO"):
+                    conn.client.table("contas_cartoes").insert({"nome": nn, "limite": nl}).execute()
+                    st.rerun()
 
     if st.button("🚪 Sair do Aplicativo"):
         st.session_state.autenticado = False
