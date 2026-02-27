@@ -17,34 +17,54 @@ if 'autenticado' not in st.session_state: st.session_state.autenticado = False
 if 'usuario' not in st.session_state: st.session_state.usuario = None
 if 'aba' not in st.session_state: st.session_state.aba = "🏠 Home"
 
-# --- 3. CSS COMPLETO (FIX MOBILE + VISUAL BASE44) ---
+# --- 3. CSS CORRETIVO (FOCO EM VISIBILIDADE TOTAL) ---
 st.markdown("""
     <style>
+    /* Fundo do App */
     .stApp { background-color: #F8FAFC !important; }
-    /* Fix para inputs no celular */
-    input { color: #1E293B !important; background-color: white !important; }
-    label { color: #1E293B !important; font-weight: bold !important; }
     
-    .card-resumo { background: #1E293B; padding:25px; border-radius:25px; color:white; margin-bottom:20px; text-align: center; }
-    .metric-card { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); text-align: center; border: 1px solid #E2E8F0; margin-bottom: 15px; }
-    .item-transacao { background: white; padding: 15px; border-radius: 20px; margin-bottom:10px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
-    .stButton>button { border-radius: 12px; font-weight: 600; height: 45px; }
-    .logo-text { font-size: 40px; text-align: center; margin-bottom: 0px; }
-    .app-name { font-size: 24px; font-weight: bold; text-align: center; color: #1E293B; margin-bottom: 20px; }
+    /* Forçar visibilidade de Textos e Labels */
+    .stMarkdown, p, span, label, h1, h2, h3, h4 { 
+        color: #1E293B !important; 
+    }
+    
+    /* Estilo dos Inputs (Campos de Digitação) */
+    div[data-baseweb="input"] {
+        background-color: white !important;
+        border: 1px solid #CBD5E1 !important;
+        border-radius: 10px !important;
+    }
+    
+    input { 
+        color: #1E293B !important; 
+        background-color: white !important; 
+    }
+
+    /* Cards e Itens */
+    .card-resumo { background: #1E293B; padding:25px; border-radius:25px; color:white !important; margin-bottom:20px; text-align: center; }
+    .card-resumo h1, .card-resumo small { color: white !important; }
+    
+    .metric-card { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); text-align: center; border: 1px solid #E2E8F0; margin-bottom: 15px; }
+    
+    .item-transacao { background: white; padding: 15px; border-radius: 15px; margin-bottom:10px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #F1F5F9; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    
+    /* Tabs (Abas) */
+    button[data-baseweb="tab"] { color: #64748B !important; }
+    button[aria-selected="true"] { color: #1E293B !important; font-weight: bold !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. TELA DE ACESSO (LOGIN, CADASTRO E RECUPERAÇÃO) ---
+# --- 4. TELA DE ACESSO ---
 if not st.session_state.autenticado:
-    col_l, col_c, col_r = st.columns([1, 4, 1])
+    col_c = st.columns([1, 5, 1])[1]
     with col_c:
-        st.markdown('<div class="logo-text">💰</div>', unsafe_allow_html=True)
-        st.markdown('<div class="app-name">MoneyFlow Pro</div>', unsafe_allow_html=True)
+        st.markdown("<h1 style='text-align:center;'>💰</h1>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align:center;'>MoneyFlow Pro</h2>", unsafe_allow_html=True)
         
-        tab_login, tab_cadastro, tab_recuperar = st.tabs(["🔐 Entrar", "📝 Criar Conta", "🔑 Recuperar"])
+        tab_log, tab_cad, tab_rec = st.tabs(["🔐 Entrar", "📝 Criar Conta", "🔑 Recuperar"])
         
-        with tab_login:
-            with st.form("form_login"):
+        with tab_log:
+            with st.form("login_form"):
                 e = st.text_input("E-mail")
                 s = st.text_input("Senha", type="password")
                 if st.form_submit_button("ACESSAR", use_container_width=True):
@@ -54,30 +74,24 @@ if not st.session_state.autenticado:
                         st.session_state.usuario = res.data[0]['email']
                         st.session_state.nome_exibicao = res.data[0]['nome']
                         st.rerun()
-                    else:
-                        st.error("E-mail ou senha incorretos.")
+                    else: st.error("Login inválido.")
         
-        with tab_cadastro:
-            with st.form("form_cadastro"):
-                n_novo = st.text_input("Nome Completo")
-                e_novo = st.text_input("Melhor E-mail")
-                s_novo = st.text_input("Crie uma Senha", type="password")
-                if st.form_submit_button("CADASTRAR AGORA", use_container_width=True):
-                    try:
-                        conn.client.table("usuarios").insert({"nome": n_novo, "email": e_novo, "senha": s_novo}).execute()
-                        st.success("Conta criada com sucesso! Faça login.")
-                    except:
-                        st.error("Este e-mail já está cadastrado.")
+        with tab_cad:
+            with st.form("cad_form"):
+                n_n = st.text_input("Nome")
+                e_n = st.text_input("E-mail")
+                s_n = st.text_input("Senha", type="password")
+                if st.form_submit_button("CADASTRAR", use_container_width=True):
+                    conn.client.table("usuarios").insert({"nome": n_n, "email": e_n, "senha": s_n}).execute()
+                    st.success("Conta criada! Vá em 'Entrar'.")
         
-        with tab_recuperar:
-            st.info("Para recuperar sua senha, insira seu e-mail abaixo. Você receberá as instruções em breve.")
-            email_rec = st.text_input("E-mail de recuperação")
-            if st.button("ENVIAR INSTRUÇÕES", use_container_width=True):
-                # Lógica simplificada de recuperação
-                st.success(f"Se o e-mail {email_rec} estiver em nossa base, um link de redefinição foi enviado.")
+        with tab_rec:
+            st.write("Digite seu e-mail para receber as instruções.")
+            st.text_input("E-mail de Recuperação")
+            st.button("ENVIAR", use_container_width=True)
     st.stop()
 
-# --- 5. CARREGAMENTO DE DADOS ---
+# --- 5. BUSCA DE DADOS ---
 def carregar_dados():
     l = conn.client.table("lancamentos").select("*").eq("created_by", st.session_state.usuario).execute().data
     c = conn.client.table("categorias").select("*").execute().data
@@ -90,7 +104,7 @@ def carregar_dados():
 
 df_lan, df_cat, df_con = carregar_dados()
 
-# --- 6. NAVEGAÇÃO SUPERIOR ---
+# --- 6. NAVEGAÇÃO ---
 st.markdown(f"**Olá, {st.session_state.nome_exibicao}**")
 nav = st.columns(5)
 if nav[0].button("🏠"): st.session_state.aba = "🏠 Home"
@@ -102,33 +116,26 @@ if nav[4].button("⚙️"): st.session_state.aba = "⚙️ Ajustes"
 # --- 7. TELAS ---
 
 if st.session_state.aba == "📊 Dash":
-    st.markdown("### Dashboard Financeiro")
-    d_i = st.date_input("De:", date.today() - timedelta(days=30))
-    d_f = st.date_input("Até:", date.today())
-    
+    st.markdown("### Dashboard")
+    d1 = st.date_input("Início", date.today() - timedelta(days=30))
+    d2 = st.date_input("Fim", date.today())
     if not df_lan.empty:
-        mask = (df_lan['data'] >= d_i) & (df_lan['data'] <= d_f)
+        mask = (df_lan['data'] >= d1) & (df_lan['data'] <= d2)
         df_f = df_lan.loc[mask]
+        r_sum = df_f[df_f['tipo'] == 'Receita']['valor'].sum()
+        d_sum = df_f[df_f['tipo'] == 'Despesa']['valor'].sum()
         
-        m1, m2 = st.columns(2)
-        rec = df_f[df_f['tipo'] == 'Receita']['valor'].sum()
-        des = df_f[df_f['tipo'] == 'Despesa']['valor'].sum()
-        
-        m1.markdown(f'<div class="metric-card"><small>Entradas</small><h2 style="color:#10B981">R$ {rec:,.2f}</h2></div>', unsafe_allow_html=True)
-        m2.markdown(f'<div class="metric-card"><small>Saídas</small><h2 style="color:#EF4444">R$ {des:,.2f}</h2></div>', unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        c1.markdown(f'<div class="metric-card"><small>Receitas</small><h2 style="color:#10B981">R$ {r_sum:,.2f}</h2></div>', unsafe_allow_html=True)
+        c2.markdown(f'<div class="metric-card"><small>Despesas</small><h2 style="color:#EF4444">R$ {d_sum:,.2f}</h2></div>', unsafe_allow_html=True)
         
         if not df_f.empty:
-            st.write("**Evolução no Período**")
-            chart = df_f.groupby(['data', 'tipo'])['valor'].sum().unstack(fill_value=0)
-            st.area_chart(chart)
-    else:
-        st.info("Nenhum dado para o período.")
+            st.area_chart(df_f.groupby(['data', 'tipo'])['valor'].sum().unstack(fill_value=0))
 
 elif st.session_state.aba == "🏠 Home":
     if not df_lan.empty:
         r, d = df_lan[df_lan['tipo'] == 'Receita']['valor'].sum(), df_lan[df_lan['tipo'] != 'Receita']['valor'].sum()
         st.markdown(f'<div class="card-resumo"><small>Saldo Geral</small><h1>R$ {r-d:,.2f}</h1></div>', unsafe_allow_html=True)
-        
         st.markdown("#### Últimos Lançamentos")
         for _, row in df_lan.sort_values('data', ascending=False).head(10).iterrows():
             cor = "#10B981" if row['tipo'] == 'Receita' else "#EF4444"
@@ -136,29 +143,26 @@ elif st.session_state.aba == "🏠 Home":
 
 elif st.session_state.aba == "➕ Novo":
     st.markdown("### Novo Lançamento")
-    with st.form("add_new"):
+    with st.form("form_add"):
         tipo = st.radio("Tipo", ["Despesa", "Receita"], horizontal=True)
-        desc = st.text_input("O que foi?")
-        valor = st.number_input("Quanto?", min_value=0.0)
+        desc = st.text_input("Descrição")
+        val = st.number_input("Valor", min_value=0.0)
         cat = st.selectbox("Categoria", df_cat[df_cat['tipo'] == tipo]['nome'].tolist() if not df_cat.empty else ["Geral"])
-        conta = st.selectbox("Onde?", df_con['nome'].tolist() if not df_con.empty else ["Dinheiro"])
-        data = st.date_input("Quando?", date.today())
-        if st.form_submit_button("SALVAR REGISTRO", use_container_width=True):
-            conn.client.table("lancamentos").insert({"descricao": desc, "valor": valor, "tipo": tipo, "categoria": cat, "conta": conta, "data": str(data), "created_by": st.session_state.usuario}).execute()
+        con = st.selectbox("Conta", df_con['nome'].tolist() if not df_con.empty else ["Dinheiro"])
+        dat = st.date_input("Data", date.today())
+        if st.form_submit_button("GRAVAR", use_container_width=True):
+            conn.client.table("lancamentos").insert({"descricao": desc, "valor": val, "tipo": tipo, "categoria": cat, "conta": con, "data": str(dat), "created_by": st.session_state.usuario}).execute()
             st.success("Lançado!"); time.sleep(1); st.session_state.aba = "🏠 Home"; st.rerun()
 
 elif st.session_state.aba == "💳 Cartões":
-    st.markdown("### Meus Cartões")
+    st.markdown("### Cartões")
     for _, conta in df_con.iterrows():
-        gastos = df_lan[(df_lan['conta'] == conta['nome']) & (df_lan['tipo'] == 'Despesa')]['valor'].sum() if not df_lan.empty and 'conta' in df_lan.columns else 0
-        disp = conta['limite'] - gastos
-        cor = "#10B981" if (conta['limite'] == 0 or disp > 0) else "#EF4444"
-        st.markdown(f'<div class="item-transacao" style="border-left: 10px solid {cor}"><b>{conta["nome"]}</b><span>R$ {disp:,.2f}</span></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="item-transacao"><b>{conta["nome"]}</b><span>R$ {conta["limite"]:,.2f}</span></div>', unsafe_allow_html=True)
 
 elif st.session_state.aba == "⚙️ Ajustes":
+    # Reaproveitando as abas de edição que já tínhamos
     t_lan, t_cat, t_car = st.tabs(["Lançamentos", "Categorias", "Cartões"])
-    # (Aqui ficam os códigos de edição e exclusão que já fizemos antes)
     with t_car:
-        if st.button("🚪 SAIR DA CONTA", use_container_width=True):
+        if st.button("🚪 SAIR DO APP", use_container_width=True):
             st.session_state.autenticado = False
             st.rerun()
