@@ -3,36 +3,60 @@ from st_supabase_connection import SupabaseConnection
 import pandas as pd
 from datetime import date, timedelta
 import time
+import streamlit.components.v1 as components
 
-# --- 1. CONFIGURAÇÃO E LIMPEZA DE INTERFACE (Reforçada) ---
+# --- 1. CONFIGURAÇÃO E HACK PARA REMOVER MARCAS D'ÁGUA ---
 st.set_page_config(page_title="MoneyFlow Pro", layout="wide", initial_sidebar_state="collapsed")
 
+# CSS Super Reforçado
 st.markdown("""
     <style>
-    /* Esconde o Header (Topo) */
-    [data-testid="stHeader"] {display: none !important;}
-    
-    /* Esconde o Footer (Rodapé completo) */
-    footer {display: none !important;}
-    
-    /* Esconde o botão de Deploy e o Menu de Hambúrguer */
-    .stAppDeployButton, #MainMenu {display: none !important;}
-
-    /* Remove a barra cinza/preta que o Streamlit Cloud coloca no rodapé */
-    .st-emotion-cache-kn0syu, .st-emotion-cache-1wb5ace {
+    /* Esconde absolutamente tudo que for nativo do Streamlit */
+    header, footer, .stAppDeployButton, #MainMenu, .st-emotion-cache-18ni7ve, .st-emotion-cache-kn0syu, .st-emotion-cache-1wb5ace {
         display: none !important;
         visibility: hidden !important;
+        opacity: 0 !important;
+        height: 0 !important;
+    }
+    
+    /* Remove a barra de visualização do Streamlit Cloud */
+    iframe[title="streamlitApp"] {
+        margin-bottom: -50px !important;
+    }
+    
+    #viewer-badge, .viewer-badge {
+        display: none !important;
     }
 
-    /* Ajusta o espaçamento para o conteúdo subir */
     .block-container {
-        padding-top: 1rem !important;
+        padding-top: 0rem !important;
         padding-bottom: 0rem !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 2. CONEXÃO (Lógica Intocada) ---
+# Hack de JavaScript para "caçar" e deletar o rodapé em tempo real
+components.html("""
+    <script>
+    const removeElements = () => {
+        const selectors = [
+            'footer', 
+            'header', 
+            '#MainMenu', 
+            '.stAppDeployButton', 
+            '.viewer-badge',
+            '[data-testid="stHeader"]'
+        ];
+        selectors.forEach(s => {
+            const el = window.parent.document.querySelector(s);
+            if (el) el.style.display = 'none';
+        });
+    };
+    setInterval(removeElements, 500); // Tenta remover a cada meio segundo
+    </script>
+    """, height=0)
+
+# --- 2. CONEXÃO ---
 url = "https://oirdbzrgwmohqcmhlhas.supabase.co"
 key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9pcmRienJnd21vaHFjbWhsaGFzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTg0NjgzOSwiZXhwIjoyMDg3NDIyODM5fQ.zVJh2FzRdMaMfj56mWSxhBmPJKvUKWQE6xUass4-yIM"
 conn = st.connection("supabase", type=SupabaseConnection, url=url, key=key)
@@ -44,7 +68,7 @@ if 'aba' not in st.session_state: st.session_state.aba = "🏠 Home"
 
 # --- 4. TELA DE ACESSO ---
 if not st.session_state.autenticado:
-    st.markdown("<h1 style='text-align: center;'>💰 MoneyFlow Pro</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; margin-top: -30px;'>💰 MoneyFlow Pro</h1>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         t_acesso = st.tabs(["🔐 Entrar", "📝 Criar Conta"])
