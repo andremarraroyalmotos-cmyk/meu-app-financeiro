@@ -4,7 +4,7 @@ import pandas as pd
 from datetime import date, timedelta
 import time
 
-# --- 1. CONFIGURAÇÃO E LOGIN (ESTILO APP) ---
+# --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="MoneyFlow Pro", layout="wide", initial_sidebar_state="collapsed")
 
 # --- 2. CONEXÃO SUPABASE ---
@@ -12,112 +12,140 @@ conn = st.connection("supabase", type=SupabaseConnection,
                      url="https://oirdbzrgwmohqcmhlhas.supabase.co", 
                      key="SUA_KEY_AQUI")
 
-# --- 3. CSS PARA IDENTIDADE VISUAL (LOGO E CARDS) ---
+# --- 3. INICIALIZAÇÃO DO ESTADO DE SESSÃO ---
+if 'autenticado' not in st.session_state: st.session_state.autenticado = False
+if 'usuario' not in st.session_state: st.session_state.usuario = None
+if 'nome_exibicao' not in st.session_state: st.session_state.nome_exibicao = "Usuário"
+if 'aba' not in st.session_state: st.session_state.aba = "🏠 Home"
+
+# --- 4. CSS ESTILO BASE44 ---
 st.markdown("""
     <style>
     .stApp { background-color: #F8FAFC !important; }
     header { visibility: hidden; }
-    .main-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; }
-    .card-black { background: #1E293B; padding:25px; border-radius:25px; color:white; margin-bottom:20px; box-shadow: 0 10px 15px rgba(0,0,0,0.1); }
-    .item-list { background: white; padding: 15px; border-radius: 20px; margin-bottom:10px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.03); }
-    .user-badge { background: #E2E8F0; padding: 5px 12px; border-radius: 15px; font-size: 0.8rem; font-weight: bold; color: #475569; }
+    .card-black { background: #1E293B; padding:25px; border-radius:25px; color:white; margin-bottom:20px; }
+    .item-list { background: white; padding: 15px; border-radius: 20px; margin-bottom:10px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.02); }
+    .login-box { background: white; padding: 30px; border-radius: 25px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+    .stButton>button { border-radius: 12px; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. VERIFICAÇÃO DE LOGIN ---
-if 'autenticado' not in st.session_state or not st.session_state.autenticado:
-    st.info("Por favor, faça login para acessar.")
-    # Aqui entraria sua tela de login anterior...
-    st.stop()
+# --- 5. LÓGICA DE ACESSO (O PORTEIRO) ---
 
-# --- 5. CABEÇALHO (LOGO, NOME E SAIR) ---
-st.markdown(f"""
-    <div class="main-header">
-        <div style="font-size: 1.5rem; font-weight: 800; color: #1E293B;">💰 MoneyFlow</div>
-        <div class="user-badge">👤 {st.session_state.nome_exibicao}</div>
-    </div>
-    """, unsafe_allow_html=True)
+if not st.session_state.autenticado:
+    # --- TELA DE LOGIN CENTRALIZADA ---
+    col_l, col_c, col_r = st.columns([1, 2, 1])
+    with col_c:
+        st.markdown("<div style='text-align: center; padding: 40px 0;'>", unsafe_allow_html=True)
+        st.markdown("<h1 style='font-size: 3rem;'>💰</h1>", unsafe_allow_html=True) # Aqui você pode por sua Logo
+        st.markdown("<h2>Bem-vindo de volta</h2><p>Acesse sua conta MoneyFlow</p>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-# Botão de Sair discreto no topo
-if st.button("🚪 Sair do Aplicativo", key="logout_top"):
-    st.session_state.autenticado = False
-    st.rerun()
+        with st.container():
+            aba_login, aba_reg = st.tabs(["🔐 Entrar", "📝 Criar Conta"])
+            
+            with aba_login:
+                with st.form("login_form"):
+                    email = st.text_input("E-mail")
+                    senha = st.text_input("Senha", type="password")
+                    if st.form_submit_button("ACESSAR DASHBOARD", use_container_width=True):
+                        # Consulta no Supabase
+                        res = conn.client.table("usuarios").select("*").eq("email", email).eq("senha", senha).execute()
+                        if res.data:
+                            st.session_state.autenticado = True
+                            st.session_state.usuario = res.data[0]['email']
+                            st.session_state.nome_exibicao = res.data[0]['nome']
+                            st.rerun()
+                        else:
+                            st.error("E-mail ou senha incorretos.")
+            
+            with aba_reg:
+                with st.form("reg_form"):
+                    novo_nome = st.text_input("Nome Completo")
+                    novo_email = st.text_input("E-mail")
+                    nova_senha = st.text_input("Senha", type="password")
+                    if st.form_submit_button("CRIAR CONTA", use_container_width=True):
+                        conn.client.table("usuarios").insert({"email": novo_email, "senha": nova_senha, "nome": novo_nome}).execute()
+                        st.success("Conta criada! Agora faça login.")
 
-# --- 6. NAVEGAÇÃO ---
-if 'aba' not in st.session_state: st.session_state.aba = "🏠 Home"
+    st.stop() # Interrompe o código aqui se não estiver logado
 
+# --- 6. SE CHEGOU AQUI, ESTÁ LOGADO - APP PRINCIPAL ---
+
+# CABEÇALHO DO APP
+col_head1, col_head2 = st.columns([0.8, 0.2])
+with col_head1:
+    st.markdown(f"#### Olá, {st.session_state.nome_exibicao} 👋")
+with col_head2:
+    if st.button("🚪 Sair"):
+        st.session_state.autenticado = False
+        st.rerun()
+
+# NAVEGAÇÃO SUPERIOR (DENTRO DO APP)
 cols = st.columns(4)
 if cols[0].button("🏠 Home"): st.session_state.aba = "🏠 Home"
 if cols[1].button("➕ Novo"): st.session_state.aba = "➕ Novo"
 if cols[2].button("💳 Cartões"): st.session_state.aba = "💳 Cartões"
 if cols[3].button("⚙️ Ajustes"): st.session_state.aba = "⚙️ Ajustes"
 
-# --- 7. BUSCA DE DADOS (COM FILTRO DE USUÁRIO) ---
-def carregar_dados_usuario():
+# BUSCA DE DADOS
+def carregar_dados():
     try:
-        # Filtramos pelo e-mail do usuário logado para garantir privacidade
         l = conn.client.table("lancamentos").select("*").eq("created_by", st.session_state.usuario).execute().data
         c = conn.client.table("categorias").select("*").execute().data
-        cc = conn.client.table("contas_cartoes").select("*").execute().data
-        return pd.DataFrame(l), pd.DataFrame(c), pd.DataFrame(cc)
+        return pd.DataFrame(l), pd.DataFrame(c)
     except:
-        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
+        return pd.DataFrame(), pd.DataFrame()
 
-df_lan, df_cat, df_con = carregar_dados_usuario()
+df_lan, df_cat = carregar_dados()
 
-# --- 8. LÓGICA DAS TELAS ---
+# --- 7. TELAS DO APP ---
 
 if st.session_state.aba == "🏠 Home":
     if not df_lan.empty:
         df_lan['valor'] = pd.to_numeric(df_lan['valor'])
-        receitas = df_lan[df_lan['tipo'] == 'Receita']['valor'].sum()
-        despesas = df_lan[df_lan['tipo'] != 'Receita']['valor'].sum()
-        saldo = receitas - despesas
+        receita = df_lan[df_lan['tipo'] == 'Receita']['valor'].sum()
+        despesa = df_lan[df_lan['tipo'] != 'Receita']['valor'].sum()
         
-        st.markdown(f"""
-            <div class="card-black">
-                <small style="opacity:0.7">Saldo Disponível</small>
-                <h1 style="margin:0; color:white;">R$ {saldo:,.2f}</h1>
-            </div>
-        """, unsafe_allow_html=True)
+        st.markdown(f'<div class="card-black"><small>Saldo Disponível</small><h1>R$ {receita - despesa:,.2f}</h1></div>', unsafe_allow_html=True)
         
-        st.markdown("#### Histórico")
-        # Mostra os últimos 10 lançamentos
+        st.markdown("#### Últimos Lançamentos")
         for _, row in df_lan.sort_values('data', ascending=False).head(10).iterrows():
             cor = "#10B981" if row['tipo'] == 'Receita' else "#EF4444"
             st.markdown(f"""
                 <div class="item-list">
-                    <div>
-                        <b>{row['descricao']}</b><br>
-                        <small style="color:gray">{row['categoria']} • {row['data']}</small>
-                    </div>
+                    <div><b>{row['descricao']}</b><br><small>{row['categoria']} • {row['data']}</small></div>
                     <b style="color:{cor}">R$ {row['valor']:,.2f}</b>
                 </div>
             """, unsafe_allow_html=True)
     else:
-        st.warning("Nenhum lançamento encontrado. Toque em 'Novo' para começar!")
+        st.info("Bem-vindo! Comece adicionando um novo lançamento.")
 
 elif st.session_state.aba == "➕ Novo":
-    st.markdown("### Novo Lançamento")
-    with st.form("add_final"):
-        t = st.radio("Tipo", ["Despesa", "Receita"], horizontal=True)
-        d = st.text_input("Descrição")
-        v = st.number_input("Valor", min_value=0.0)
+    st.markdown("### Novo Registro")
+    with st.form("novo_registro"):
+        tipo = st.radio("", ["Despesa", "Receita"], horizontal=True)
+        desc = st.text_input("O que foi?")
+        valor = st.number_input("Valor", min_value=0.0)
         
-        # Categorias Dinâmicas
-        op_cat = df_cat[df_cat['tipo'] == t]['nome'].tolist() if not df_cat.empty else ["Outros"]
-        cat = st.selectbox("Categoria", op_cat)
+        # Categorias vindas do banco
+        lista_cat = df_cat[df_cat['tipo'] == tipo]['nome'].tolist() if not df_cat.empty else ["Outros"]
+        cat = st.selectbox("Categoria", lista_cat)
         
         data = st.date_input("Data", date.today())
         
-        if st.form_submit_button("Salvar Lançamento", use_container_width=True):
+        if st.form_submit_button("SALVAR AGORA", use_container_width=True):
             conn.client.table("lancamentos").insert({
-                "data": str(data), "descricao": d, "valor": v, 
-                "tipo": t, "categoria": cat, "created_by": st.session_state.usuario
+                "descricao": desc, "valor": valor, "tipo": tipo, 
+                "categoria": cat, "data": str(data), "created_by": st.session_state.usuario
             }).execute()
-            st.success("Lançado com sucesso!")
+            st.success("Salvo!")
             time.sleep(1)
             st.session_state.aba = "🏠 Home"
             st.rerun()
 
-# (As abas de Cartões e Ajustes seguem a mesma lógica anterior...)
+elif st.session_state.aba == "⚙️ Ajustes":
+    st.markdown("### Configurações")
+    # Aqui você mantém a função de editar categorias e lançamentos
+    if st.button("🗑️ Limpar cache e atualizar dados"):
+        st.rerun()
