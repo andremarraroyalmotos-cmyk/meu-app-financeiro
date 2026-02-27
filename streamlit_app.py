@@ -3,60 +3,44 @@ from st_supabase_connection import SupabaseConnection
 import pandas as pd
 from datetime import date, timedelta
 import time
-import streamlit.components.v1 as components
 
-# --- 1. CONFIGURAÇÃO E HACK PARA REMOVER MARCAS D'ÁGUA ---
+# --- 1. CONFIGURAÇÃO E LIMPEZA CIRÚRGICA ---
 st.set_page_config(page_title="MoneyFlow Pro", layout="wide", initial_sidebar_state="collapsed")
 
-# CSS Super Reforçado
+# CSS focado em sobreposição (Z-Index) e ocultação de badges
 st.markdown("""
     <style>
-    /* Esconde absolutamente tudo que for nativo do Streamlit */
-    header, footer, .stAppDeployButton, #MainMenu, .st-emotion-cache-18ni7ve, .st-emotion-cache-kn0syu, .st-emotion-cache-1wb5ace {
+    /* Esconde o Header e o botão de Deploy */
+    [data-testid="stHeader"], .stAppDeployButton {display: none !important;}
+    
+    /* Esconde o Footer padrão */
+    footer {display: none !important;}
+    
+    /* Ataca o 'Manage App' e o badge do Streamlit Cloud */
+    #viewer-badge, .viewer-badge, [data-testid="stStatusWidget"] {
         display: none !important;
         visibility: hidden !important;
-        opacity: 0 !important;
-        height: 0 !important;
     }
-    
-    /* Remove a barra de visualização do Streamlit Cloud */
-    iframe[title="streamlitApp"] {
-        margin-bottom: -50px !important;
-    }
-    
-    #viewer-badge, .viewer-badge {
+
+    /* Remove a barra flutuante inferior que aparece em dispositivos móveis */
+    .st-emotion-cache-kn0syu, .st-emotion-cache-1wb5ace {
         display: none !important;
     }
 
+    /* Faz o conteúdo principal "atropelar" qualquer rodapé */
+    .stApp {
+        bottom: 0px !important;
+        background-color: transparent !important;
+    }
+    
     .block-container {
-        padding-top: 0rem !important;
+        padding-top: 1rem !important;
         padding-bottom: 0rem !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# Hack de JavaScript para "caçar" e deletar o rodapé em tempo real
-components.html("""
-    <script>
-    const removeElements = () => {
-        const selectors = [
-            'footer', 
-            'header', 
-            '#MainMenu', 
-            '.stAppDeployButton', 
-            '.viewer-badge',
-            '[data-testid="stHeader"]'
-        ];
-        selectors.forEach(s => {
-            const el = window.parent.document.querySelector(s);
-            if (el) el.style.display = 'none';
-        });
-    };
-    setInterval(removeElements, 500); // Tenta remover a cada meio segundo
-    </script>
-    """, height=0)
-
-# --- 2. CONEXÃO ---
+# --- 2. CONEXÃO (Lógica padrão de sucesso) ---
 url = "https://oirdbzrgwmohqcmhlhas.supabase.co"
 key = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9pcmRienJnd21vaHFjbWhsaGFzIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MTg0NjgzOSwiZXhwIjoyMDg3NDIyODM5fQ.zVJh2FzRdMaMfj56mWSxhBmPJKvUKWQE6xUass4-yIM"
 conn = st.connection("supabase", type=SupabaseConnection, url=url, key=key)
@@ -68,7 +52,7 @@ if 'aba' not in st.session_state: st.session_state.aba = "🏠 Home"
 
 # --- 4. TELA DE ACESSO ---
 if not st.session_state.autenticado:
-    st.markdown("<h1 style='text-align: center; margin-top: -30px;'>💰 MoneyFlow Pro</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>💰 MoneyFlow Pro</h1>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         t_acesso = st.tabs(["🔐 Entrar", "📝 Criar Conta"])
@@ -79,12 +63,9 @@ if not st.session_state.autenticado:
                 if st.form_submit_button("ENTRAR", use_container_width=True):
                     res = conn.client.table("usuarios").select("*").eq("email", e).eq("senha", s).execute()
                     if res.data:
-                        st.session_state.autenticado = True
-                        st.session_state.usuario = res.data[0]['email']
-                        st.session_state.nome_exibicao = res.data[0]['nome']
+                        st.session_state.autenticado, st.session_state.usuario, st.session_state.nome_exibicao = True, res.data[0]['email'], res.data[0]['nome']
                         st.rerun()
-                    else:
-                        st.error("Login inválido.")
+                    else: st.error("Login inválido.")
     st.stop()
 
 # --- 5. CARREGAMENTO DE DADOS ---
@@ -102,16 +83,15 @@ def carregar_dados():
 
 df_lan, df_cat, df_con = carregar_dados()
 
-# --- 6. CABEÇALHO E MENU ---
+# --- 6. INTERFACE PRINCIPAL ---
 st.markdown("<h1 style='text-align: center;'>💰 MoneyFlow Pro</h1>", unsafe_allow_html=True)
 st.markdown(f"<p style='text-align: center;'>Olá, <b>{st.session_state.nome_exibicao}</b></p>", unsafe_allow_html=True)
 
 nav = st.columns(5)
-if nav[0].button("🏠", use_container_width=True): st.session_state.aba = "🏠 Home"
-if nav[1].button("📊", use_container_width=True): st.session_state.aba = "📊 Dash"
-if nav[2].button("➕", use_container_width=True): st.session_state.aba = "➕ Novo"
-if nav[3].button("💳", use_container_width=True): st.session_state.aba = "💳 Cartões"
-if nav[4].button("⚙️", use_container_width=True): st.session_state.aba = "⚙️ Ajustes"
+btns = ["🏠", "📊", "➕", "💳", "⚙️"]
+abas = ["🏠 Home", "📊 Dash", "➕ Novo", "💳 Cartões", "⚙️ Ajustes"]
+for i in range(5):
+    if nav[i].button(btns[i], use_container_width=True): st.session_state.aba = abas[i]
 st.divider()
 
 # --- 7. TELAS ---
@@ -122,15 +102,6 @@ if st.session_state.aba == "🏠 Home":
     st.write("### Últimas Movimentações")
     if not df_lan.empty:
         st.dataframe(df_lan.sort_values('data', ascending=False).head(15)[['data', 'descricao', 'valor', 'conta']], use_container_width=True, hide_index=True)
-
-elif st.session_state.aba == "📊 Dash":
-    d_i, d_f = st.date_input("Período", [date.today()-timedelta(30), date.today()])
-    if not df_lan.empty:
-        df_f = df_lan[(df_lan['data'] >= d_i) & (df_lan['data'] <= d_f)]
-        c1, c2 = st.columns(2)
-        c1.metric("Receitas", f"R$ {df_f[df_f['tipo'] == 'Receita']['valor'].sum():,.2f}")
-        c2.metric("Despesas", f"R$ {df_f[df_f['tipo'] == 'Despesa']['valor'].sum():,.2f}")
-        st.area_chart(df_f.groupby(['data', 'tipo'])['valor'].sum().unstack(fill_value=0))
 
 elif st.session_state.aba == "➕ Novo":
     with st.form("add"):
@@ -159,28 +130,9 @@ elif st.session_state.aba == "💳 Cartões":
 
 elif st.session_state.aba == "⚙️ Ajustes":
     t1, t2, t3, t4 = st.tabs(["📝 Lançamentos", "🛠️ Categorias", "💳 Cartões", "🚪 Sair"])
-    with t1:
-        if not df_lan.empty:
-            df_lan['chave'] = df_lan['data'].astype(str) + " - " + df_lan['descricao']
-            escolha = st.selectbox("Selecione:", df_lan['chave'].tolist())
-            item = df_lan[df_lan['chave'] == escolha].iloc[0]
-            with st.form("ed_l"):
-                n_d, n_v = st.text_input("Descrição", value=item['descricao']), st.number_input("Valor", value=float(item['valor']))
-                if st.form_submit_button("ATUALIZAR"):
-                    conn.client.table("lancamentos").update({"descricao": n_d, "valor": n_v}).eq("id", item['id']).execute()
-                    st.rerun()
-                if st.form_submit_button("EXCLUIR"):
-                    conn.client.table("lancamentos").delete().eq("id", item['id']).execute()
-                    st.rerun()
-    with t2:
-        with st.form("n_c"):
-            nc, tc = st.text_input("Nome"), st.selectbox("Tipo", ["Despesa", "Receita"])
-            if st.form_submit_button("CRIAR"):
-                conn.client.table("categorias").insert({"nome": nc, "tipo": tc}).execute()
-                st.rerun()
     with t3:
         if not df_con.empty:
-            s_c = st.selectbox("Escolha Cartão:", df_con['nome'].tolist())
+            s_c = st.selectbox("Cartão:", df_con['nome'].tolist())
             c_a = df_con[df_con['nome'] == s_c].iloc[0]
             with st.form("ed_c"):
                 nn, ll = st.text_input("Nome", value=c_a['nome']), st.number_input("Limite", value=float(c_a['limite']))
@@ -197,6 +149,5 @@ elif st.session_state.aba == "⚙️ Ajustes":
                 conn.client.table("contas_cartoes").insert({"nome": an, "limite": al}).execute()
                 st.rerun()
     with t4:
-        if st.button("SAIR DA CONTA", use_container_width=True):
-            st.session_state.autenticado = False
-            st.rerun()
+        if st.button("SAIR", use_container_width=True):
+            st.session_state.autenticado = False; st.rerun()
