@@ -25,7 +25,7 @@ if 'usuario' not in st.session_state: st.session_state.usuario = None
 if 'nome_exibicao' not in st.session_state: st.session_state.nome_exibicao = "Usuário"
 if 'pagina' not in st.session_state: st.session_state.pagina = "📊 Dashboard"
 
-# --- 4. CSS: BOTÕES, RESPONSIVIDADE E CORES ---
+# --- 4. CSS: BOTÕES, RESPONSIVIDADE E ESTILO ---
 st.markdown("""
     <style>
     .stApp {
@@ -56,15 +56,15 @@ st.markdown("""
     div.stButton > button p, div.stFormSubmitButton > button p {
         color: #1E3A8A !important;
         font-weight: 800 !important;
-        font-size: 0.9rem !important;
+        font-size: 0.95rem !important;
     }
 
     /* AJUSTES PARA CELULAR */
     @media (max-width: 768px) {
         .main .block-container { padding: 0.5rem !important; }
         [data-testid="column"] { width: 100% !important; flex: 1 1 100% !important; }
-        div.stButton > button { height: 42px !important; }
-        div.stButton > button p { font-size: 0.7rem !important; }
+        div.stButton > button { height: 44px !important; }
+        div.stButton > button p { font-size: 0.75rem !important; }
     }
 
     h1, h2, h3, label, p, [data-testid="stMetricValue"] { color: white !important; }
@@ -83,7 +83,11 @@ if not st.session_state.autenticado:
             if os.path.exists("logo.png"): st.image("logo.png", use_container_width=True)
             else: st.markdown("<h1 style='text-align: center; font-size: 4rem; margin:0;'>💰</h1>", unsafe_allow_html=True)
         
-        t_log, t_reg, t_rec = st.tabs(["🔐 Entrar", "📝 Cadastro", "🔑 Senha"])
+        st.markdown("<p style='text-align: center; opacity: 0.9; margin-top: -10px; margin-bottom: 25px;'>Inteligência Financeira</p>", unsafe_allow_html=True)
+        
+        # RESTAURADO: Suporte de volta no login
+        t_log, t_reg, t_rec, t_sup = st.tabs(["🔐 Entrar", "📝 Cadastro", "🔑 Senha", "❔ Suporte"])
+        
         with t_log:
             with st.form("login_form"):
                 e, s = st.text_input("E-mail"), st.text_input("Senha", type="password")
@@ -100,6 +104,12 @@ if not st.session_state.autenticado:
                 if st.form_submit_button("CRIAR CONTA"):
                     conn.client.table("usuarios").insert({"email": em, "senha": se, "nome": n}).execute()
                     st.success("Sucesso!")
+        with t_rec:
+            with st.form("rec_form"):
+                st.text_input("E-mail para recuperação")
+                st.form_submit_button("ENVIAR LINK")
+        with t_sup:
+            st.markdown("<p style='text-align:center; padding: 20px;'>suporte@moneyflow.pro</p>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
     st.stop()
 
@@ -109,7 +119,7 @@ if st.sidebar.button("🚪 SAIR"):
     st.session_state.autenticado = False
     st.rerun()
 
-# Menu superior para facilitar no celular
+# Botões de atalho para celular e desktop
 nav1, nav2, nav3 = st.columns(3)
 with nav1:
     if st.button("📊 HOME"): st.session_state.pagina = "📊 Dashboard"
@@ -140,22 +150,31 @@ cats_disp = sorted(list(set(["Salário", "Moradia", "Lazer", "Alimentação"] + 
 aba = st.session_state.pagina
 
 if aba == "📊 Dashboard":
-    st.markdown("### Dashboard")
+    st.markdown("<h1>📊 Dashboard</h1>", unsafe_allow_html=True)
     if not df_raw.empty:
         c1, c2 = st.columns(2)
         d_i, d_f = c1.date_input("Início", df_raw['data'].min()), c2.date_input("Fim", date.today())
         df_f = df_raw[(df_raw['data'] >= d_i) & (df_raw['data'] <= d_f)].copy()
         r, d = df_f[df_f['tipo'] == 'Receita']['valor'].sum(), df_f[df_f['tipo'] != 'Receita']['valor'].sum()
         
-        st.metric("Receitas", f"R$ {r:,.2f}")
-        st.metric("Despesas", f"R$ {d:,.2f}")
-        st.metric("Saldo", f"R$ {r-d:,.2f}")
+        # Métricas
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Receitas", f"R$ {r:,.2f}")
+        m2.metric("Despesas", f"R$ {d:,.2f}")
+        m3.metric("Saldo", f"R$ {r-d:,.2f}")
         
-        st.plotly_chart(px.pie(df_f, values='valor', names='categoria', hole=0.5, title="Gastos").update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", showlegend=False), use_container_width=True)
+        # Gráficos
+        col_g1, col_g2 = st.columns(2)
+        with col_g1: 
+            st.plotly_chart(px.pie(df_f, values='valor', names='categoria', hole=0.5, title="Gastos por Categoria").update_layout(paper_bgcolor='rgba(0,0,0,0)', font_color="white", showlegend=False), use_container_width=True)
+        with col_g2: 
+            st.plotly_chart(px.line(df_f.groupby('data')['valor'].sum().reset_index(), x='data', y='valor', title="Fluxo Financeiro").update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font_color="white"), use_container_width=True)
+        
+        # RESTAURADO: Tabela com todas as colunas
         st.dataframe(df_f[['data', 'descricao', 'categoria', 'tipo', 'valor']].sort_values('data', ascending=False), use_container_width=True)
 
 elif aba == "➕ Novo Lançamento":
-    st.markdown("### Novo Registro")
+    st.markdown("<h1>➕ Novo Registro</h1>", unsafe_allow_html=True)
     with st.form("form_add"):
         c_a, c_b = st.columns(2)
         with c_a: dt, ds, vl = st.date_input("Data"), st.text_input("Descrição"), st.number_input("Valor", min_value=0.0)
@@ -166,7 +185,7 @@ elif aba == "➕ Novo Lançamento":
             st.success("Salvo!"); time.sleep(1); st.session_state.pagina = "📊 Dashboard"; st.rerun()
 
 elif aba == "⚙️ Gerenciar":
-    st.markdown("### Gerenciamento")
+    st.markdown("<h1>⚙️ Gerenciamento</h1>", unsafe_allow_html=True)
     t1, t2 = st.tabs(["✏️ Editar / Excluir", "🛠️ Configurar Listas"])
     with t1:
         if not df_raw.empty:
@@ -174,7 +193,9 @@ elif aba == "⚙️ Gerenciar":
             sel_id = st.selectbox("Item:", df_raw['id'].tolist(), format_func=lambda x: df_raw.loc[df_raw['id'] == x, 'display'].values[0])
             item = df_raw[df_raw['id'] == sel_id].iloc[0]
             with st.form("edit_f"):
-                n_ds, n_vl = st.text_input("Descrição", item['descricao']), st.number_input("Valor", value=float(item['valor']))
+                # RESTAURADO: Edição de Descrição e Valor
+                n_ds = st.text_input("Descrição", item['descricao'])
+                n_vl = st.number_input("Valor", value=float(item['valor']))
                 col_ed1, col_ed2 = st.columns(2)
                 if col_ed1.form_submit_button("ATUALIZAR"):
                     conn.client.table("lancamentos").update({"descricao": n_ds, "valor": n_vl}).eq("id", sel_id).execute()
