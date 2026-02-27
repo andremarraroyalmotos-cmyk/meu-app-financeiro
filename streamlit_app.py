@@ -4,31 +4,27 @@ import pandas as pd
 from datetime import date, timedelta
 import time
 
-# --- 1. CONFIGURAÇÃO E HACK DE COMPRESSÃO DO RODAPÉ ---
+# --- 1. CONFIGURAÇÃO E CAMUFLAGEM ---
 st.set_page_config(page_title="MoneyFlow Pro", layout="wide", initial_sidebar_state="collapsed")
 
+# Cores que costumam "esconder" o badge (Cinza Escuro/Preto)
 st.markdown("""
     <style>
     /* Esconde o topo e menus */
     [data-testid="stHeader"], .stAppDeployButton, #MainMenu {display: none !important;}
     
-    /* TENTA DIMINUIR O RODAPÉ AO MÁXIMO */
-    footer {
-        display: none !important;
-        height: 0px !important;
-        padding: 0px !important;
+    /* Esconde o footer padrão */
+    footer {display: none !important;}
+
+    /* Camuflagem: Pinta o fundo com a cor aproximada do badge do Streamlit */
+    .stApp {
+        background-color: #0e1117 !important;
     }
     
-    /* Ataca a barra cinza de 'Manage App' do Cloud */
+    /* Remove as linhas divisórias da barra inferior */
     .st-emotion-cache-kn0syu, .st-emotion-cache-1wb5ace {
-        height: 1px !important;
-        overflow: hidden !important;
-        opacity: 0.1 !important; /* Quase invisível */
-    }
-
-    /* Expande o container do app para ocupar o fundo da tela */
-    .stApp {
-        bottom: -20px !important;
+        border: none !important;
+        background-color: transparent !important;
     }
 
     .block-container {
@@ -51,7 +47,7 @@ if 'aba' not in st.session_state: st.session_state.aba = "🏠 Home"
 
 # --- 4. TELA DE ACESSO ---
 if not st.session_state.autenticado:
-    st.markdown("<h1 style='text-align: center;'>💰 MoneyFlow Pro</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: white;'>💰 MoneyFlow Pro</h1>", unsafe_allow_html=True)
     col1, col2, col3 = st.columns([1, 4, 1])
     with col2:
         t_acesso = st.tabs(["🔐 Entrar", "📝 Criar Conta"])
@@ -83,7 +79,7 @@ def carregar_dados():
 df_lan, df_cat, df_con = carregar_dados()
 
 # --- 6. HEADER ---
-st.markdown("<h2 style='text-align: center;'>💰 MoneyFlow Pro</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center; color: white;'>💰 MoneyFlow Pro</h2>", unsafe_allow_html=True)
 nav = st.columns(5)
 btns = ["🏠", "📊", "➕", "💳", "⚙️"]
 abas = ["🏠 Home", "📊 Dash", "➕ Novo", "💳 Cartões", "⚙️ Ajustes"]
@@ -118,6 +114,7 @@ elif st.session_state.aba == "➕ Novo":
             st.success("Salvo!"); time.sleep(1); st.session_state.aba = "🏠 Home"; st.rerun()
 
 elif st.session_state.aba == "💳 Cartões":
+    st.write("### Meus Limites")
     if not df_con.empty:
         for _, c in df_con.iterrows():
             gasto = df_lan[(df_lan['conta'] == c['nome']) & (df_lan['tipo'] == 'Despesa')]['valor'].sum() if not df_lan.empty else 0.0
@@ -125,12 +122,12 @@ elif st.session_state.aba == "💳 Cartões":
             prog = min(gasto / c['limite'], 1.0) if c['limite'] > 0 else 0.0
             st.write(f"**{c['nome']}**")
             col_a, col_b = st.columns(2)
-            col_a.metric("Limite", f"R$ {c['limite']:,.2f}")
-            col_b.metric("Livre", f"R$ {disp:,.2f}")
+            col_a.metric("Gasto", f"R$ {gasto:,.2f}")
+            col_b.metric("Disponível", f"R$ {disp:,.2f}")
             st.progress(prog); st.divider()
 
 elif st.session_state.aba == "⚙️ Ajustes":
-    t1, t2, t3, t4 = st.tabs(["📊 Editar", "🛠️ Categorias", "💳 Contas", "🚪 Sair"])
+    t1, t2, t3, t4 = st.tabs(["📝 Editar", "🛠️ Categorias", "💳 Contas", "🚪 Sair"])
     with t1:
         if not df_lan.empty:
             df_lan['chave'] = df_lan['data'].astype(str) + " - " + df_lan['descricao']
@@ -152,10 +149,10 @@ elif st.session_state.aba == "⚙️ Ajustes":
                 st.rerun()
     with t3:
         with st.form("add_c"):
-            an, al = st.text_input("Nome"), st.number_input("Limite", min_value=0.0)
+            an, al = st.text_input("Nome Cartão"), st.number_input("Limite", min_value=0.0)
             if st.form_submit_button("CADASTRAR"):
                 conn.client.table("contas_cartoes").insert({"nome": an, "limite": al}).execute()
                 st.rerun()
     with t4:
-        if st.button("SAIR", use_container_width=True):
+        if st.button("SAIR DA CONTA", use_container_width=True):
             st.session_state.autenticado = False; st.rerun()
