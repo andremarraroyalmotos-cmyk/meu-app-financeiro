@@ -44,45 +44,53 @@ if not st.session_state.autenticado:
         with st.container():
             aba_login, aba_reg = st.tabs(["🔐 Entrar", "📝 Criar Conta"])
             
-            with aba_login:
-               with st.form("login_form"):
-            email = st.text_input("E-mail")
-            senha = st.text_input("Senha", type="password")
+           if not st.session_state.autenticado:
+    col_l, col_c, col_r = st.columns([1, 2, 1])
+    with col_c:
+        st.markdown("<div style='text-align: center; padding: 20px 0;'><h1>💰</h1><h2>MoneyFlow Pro</h2></div>", unsafe_allow_html=True)
+        
+        with st.container():
+            aba_login, aba_reg = st.tabs(["🔐 Entrar", "📝 Criar Conta"])
             
-            if st.form_submit_button("ACESSAR DASHBOARD", use_container_width=True):
-                # A partir daqui, as linhas precisam de 4 espaços extras de recuo
-                try:
-                    res = conn.client.table("usuarios").select("*").eq("email", email).eq("senha", senha).execute()
+            with aba_login:
+                # O erro estava aqui: tudo abaixo do 'with' precisa de espaços à esquerda
+                with st.form("login_form"):
+                    email = st.text_input("E-mail")
+                    senha = st.text_input("Senha", type="password")
                     
-                    if res.data:
-                        st.session_state.autenticado = True
-                        st.session_state.usuario = res.data[0]['email']
-                        st.session_state.nome_exibicao = res.data[0]['nome']
-                        st.rerun()
-                    else:
-                        st.error("E-mail ou senha incorretos.")
-                except Exception as e:
-                    st.error(f"Erro ao acessar o banco de dados: {e}")
-                        # Consulta no Supabase
-                        res = conn.client.table("usuarios").select("*").eq("email", email).eq("senha", senha).execute()
-                        if res.data:
-                            st.session_state.autenticado = True
-                            st.session_state.usuario = res.data[0]['email']
-                            st.session_state.nome_exibicao = res.data[0]['nome']
-                            st.rerun()
-                        else:
-                            st.error("E-mail ou senha incorretos.")
+                    botao_login = st.form_submit_button("ACESSAR DASHBOARD", use_container_width=True)
+                    
+                    if botao_login:
+                        try:
+                            # Busca o usuário no banco
+                            res = conn.client.table("usuarios").select("*").eq("email", email).eq("senha", senha).execute()
+                            
+                            if res.data:
+                                st.session_state.autenticado = True
+                                st.session_state.usuario = res.data[0]['email']
+                                st.session_state.nome_exibicao = res.data[0]['nome']
+                                st.success(f"Bem-vindo, {st.session_state.nome_exibicao}!")
+                                time.sleep(1)
+                                st.rerun()
+                            else:
+                                st.error("E-mail ou senha incorretos.")
+                        except Exception as e:
+                            st.error("Erro ao conectar com o banco. Verifique as permissões (RLS).")
             
             with aba_reg:
                 with st.form("reg_form"):
-                    novo_nome = st.text_input("Nome Completo")
-                    novo_email = st.text_input("E-mail")
-                    nova_senha = st.text_input("Senha", type="password")
+                    n_nome = st.text_input("Nome Completo")
+                    n_email = st.text_input("E-mail")
+                    n_senha = st.text_input("Senha", type="password")
+                    
                     if st.form_submit_button("CRIAR CONTA", use_container_width=True):
-                        conn.client.table("usuarios").insert({"email": novo_email, "senha": nova_senha, "nome": novo_nome}).execute()
-                        st.success("Conta criada! Agora faça login.")
+                        try:
+                            conn.client.table("usuarios").insert({"email": n_email, "senha": n_senha, "nome": n_nome}).execute()
+                            st.success("Conta criada! Vá na aba 'Entrar'.")
+                        except:
+                            st.error("Erro ao criar conta. E-mail já pode estar em uso.")
 
-    st.stop() # Interrompe o código aqui se não estiver logado
+    st.stop() # Bloqueia o resto do app até logar
 
 # --- 6. SE CHEGOU AQUI, ESTÁ LOGADO - APP PRINCIPAL ---
 
