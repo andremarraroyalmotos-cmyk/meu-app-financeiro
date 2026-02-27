@@ -4,18 +4,32 @@ import pandas as pd
 from datetime import date, timedelta
 import time
 
-# --- 1. CONFIGURAÇÃO E LIMPEZA DE INTERFACE ---
+# --- 1. CONFIGURAÇÃO E LIMPEZA TOTAL DE INTERFACE ---
 st.set_page_config(page_title="MoneyFlow Pro", layout="wide", initial_sidebar_state="collapsed")
 
-# CSS para esconder o menu superior (Fork/GitHub) e o rodapé (Made with Streamlit)
+# CSS Reforçado para esconder TUDO (topo, rodapé, botões de host e menus)
 st.markdown("""
     <style>
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
-    /* Remove o espaço em branco que fica no topo após esconder o header */
-    .stAppDeployButton {display:none;}
-    [data-testid="stHeader"] {display:none;}
+    /* Esconde o Header (Topo) */
+    header[data-testid="stHeader"] {display: none !important;}
+    
+    /* Esconde o Footer (Rodapé "Made with Streamlit") */
+    footer {display: none !important;}
+    
+    /* Esconde botões de Deploy e menus adicionais */
+    .stAppDeployButton {display: none !important;}
+    #MainMenu {visibility: hidden !important;}
+    
+    /* Remove espaços vazios deixados pelos elementos escondidos */
+    .block-container {
+        padding-top: 1rem !important;
+        padding-bottom: 0rem !important;
+    }
+    
+    /* Garante que o fundo ocupe a tela toda sem barras brancas */
+    .stApp {
+        bottom: 0 !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
