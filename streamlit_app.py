@@ -19,9 +19,7 @@ if 'aba' not in st.session_state: st.session_state.aba = "🏠 Home"
 
 # --- 3. TELA DE ACESSO ---
 if not st.session_state.autenticado:
-    # Título Centralizado na Tela de Login
     st.markdown("<h1 style='text-align: center;'>💰 MoneyFlow Pro</h1>", unsafe_allow_html=True)
-    
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         aba_entrar, aba_criar = st.tabs(["🔐 Entrar", "📝 Criar Conta"])
@@ -32,9 +30,7 @@ if not st.session_state.autenticado:
                 if st.form_submit_button("ACESSAR", use_container_width=True):
                     res = conn.client.table("usuarios").select("*").eq("email", email).eq("senha", senha).execute()
                     if res.data:
-                        st.session_state.autenticado = True
-                        st.session_state.usuario = res.data[0]['email']
-                        st.session_state.nome_exibicao = res.data[0]['nome']
+                        st.session_state.autenticado, st.session_state.usuario, st.session_state.nome_exibicao = True, res.data[0]['email'], res.data[0]['nome']
                         st.rerun()
                     else: st.error("Login inválido.")
         with aba_criar:
@@ -61,7 +57,6 @@ def carregar_dados():
 df_lan, df_cat, df_con = carregar_dados()
 
 # --- 5. CABEÇALHO E MENU ---
-# Título Centralizado no App logado
 st.markdown("<h1 style='text-align: center;'>💰 MoneyFlow Pro</h1>", unsafe_allow_html=True)
 st.markdown(f"<p style='text-align: center;'>Olá, <b>{st.session_state.nome_exibicao}</b></p>", unsafe_allow_html=True)
 
@@ -71,7 +66,6 @@ if nav[1].button("📊", use_container_width=True): st.session_state.aba = "📊
 if nav[2].button("➕", use_container_width=True): st.session_state.aba = "➕ Novo"
 if nav[3].button("💳", use_container_width=True): st.session_state.aba = "💳 Cartões"
 if nav[4].button("⚙️", use_container_width=True): st.session_state.aba = "⚙️ Ajustes"
-
 st.divider()
 
 # --- 6. TELAS ---
@@ -80,7 +74,6 @@ if st.session_state.aba == "🏠 Home":
     receitas = df_lan[df_lan['tipo'] == 'Receita']['valor'].sum() if not df_lan.empty else 0.0
     despesas = df_lan[df_lan['tipo'] == 'Despesa']['valor'].sum() if not df_lan.empty else 0.0
     st.metric(label="Saldo Geral Disponível", value=f"R$ {receitas - despesas:,.2f}")
-    
     st.write("### Últimas Movimentações")
     if not df_lan.empty:
         st.dataframe(df_lan.sort_values('data', ascending=False).head(15)[['data', 'descricao', 'valor', 'tipo']], use_container_width=True, hide_index=True)
@@ -98,8 +91,7 @@ elif st.session_state.aba == "📊 Dash":
 elif st.session_state.aba == "➕ Novo":
     with st.form("add"):
         t = st.radio("Tipo", ["Despesa", "Receita"], horizontal=True)
-        desc = st.text_input("Descrição")
-        val = st.number_input("Valor", min_value=0.0, step=0.01)
+        desc, val = st.text_input("Descrição"), st.number_input("Valor", min_value=0.0, step=0.01)
         cat = st.selectbox("Categoria", df_cat[df_cat['tipo'] == t]['nome'].tolist() if not df_cat.empty else ["Geral"])
         con = st.selectbox("Conta/Cartão", df_con['nome'].tolist() if not df_con.empty else ["Carteira"])
         dat = st.date_input("Data", date.today())
@@ -108,61 +100,70 @@ elif st.session_state.aba == "➕ Novo":
             st.success("Lançado!"); time.sleep(1); st.session_state.aba = "🏠 Home"; st.rerun()
 
 elif st.session_state.aba == "💳 Cartões":
-    st.header("Meus Cartões")
+    st.header("Balanço de Limites")
     if not df_con.empty:
         for _, c in df_con.iterrows():
-            st.write(f"**{c['nome']}** - Limite: R$ {c['limite']:,.2f}")
+            # Filtra apenas as DESPESAS feitas neste cartão específico
+            gastos_cartao = df_lan[(df_lan['conta'] == c['nome']) & (df_lan['tipo'] == 'Despesa')]['valor'].sum() if not df_lan.empty else 0.0
+            saldo_disponivel = c['limite'] - gastos_cartao
+            
+            # Cálculo de porcentagem para a barra de progresso
+            if c['limite'] > 0:
+                progresso = min(gastos_cartao / c['limite'], 1.0) # Não passa de 100%
+            else:
+                progresso = 0.0
+
+            # Exibição visual
+            st.subheader(f"💳 {c['nome']}")
+            col_a, col_b, col_c = st.columns(3)
+            col_a.metric("Limite Total", f"R$ {c['limite']:,.2f}")
+            col_b.metric("Já Gasto", f"R$ {gastos_cartao:,.2f}", delta=f"{progresso*100:.1f}%", delta_color="inverse")
+            col_c.metric("Disponível", f"R$ {saldo_disponivel:,.2f}")
+            
+            st.progress(progresso)
             st.divider()
+    else:
+        st.warning("Nenhum cartão cadastrado em Ajustes.")
 
 elif st.session_state.aba == "⚙️ Ajustes":
     t1, t2, t3, t4 = st.tabs(["📝 Lançamentos", "🛠️ Categorias", "💳 Cartões", "🚪 Sair"])
-    
     with t1:
         if not df_lan.empty:
             df_lan['chave'] = df_lan['data'].astype(str) + " - " + df_lan['descricao']
             escolha = st.selectbox("Selecione Lançamento:", df_lan['chave'].tolist())
             item = df_lan[df_lan['chave'] == escolha].iloc[0]
             with st.form("edit_lan"):
-                n_d = st.text_input("Descrição", value=item['descricao'])
-                n_v = st.number_input("Valor", value=float(item['valor']))
+                n_d, n_v = st.text_input("Descrição", value=item['descricao']), st.number_input("Valor", value=float(item['valor']))
                 if st.form_submit_button("ATUALIZAR"):
                     conn.client.table("lancamentos").update({"descricao": n_d, "valor": n_v}).eq("id", item['id']).execute()
                     st.rerun()
                 if st.form_submit_button("EXCLUIR"):
                     conn.client.table("lancamentos").delete().eq("id", item['id']).execute()
                     st.rerun()
-    
     with t2:
         with st.form("new_cat"):
             nc, tc = st.text_input("Nome Categoria"), st.selectbox("Tipo", ["Despesa", "Receita"])
             if st.form_submit_button("CRIAR"):
                 conn.client.table("categorias").insert({"nome": nc, "tipo": tc}).execute()
                 st.rerun()
-                
     with t3:
-        st.write("### Gerenciar Cartões")
         if not df_con.empty:
             c_escolha = st.selectbox("Selecione o Cartão:", df_con['nome'].tolist())
             cartao = df_con[df_con['nome'] == c_escolha].iloc[0]
             with st.form("edit_card"):
-                nn_c = st.text_input("Nome do Cartão", value=cartao['nome'])
-                ll_c = st.number_input("Limite", value=float(cartao['limite']))
+                nn_c, ll_c = st.text_input("Nome do Cartão", value=cartao['nome']), st.number_input("Limite", value=float(cartao['limite']))
                 if st.form_submit_button("ATUALIZAR CARTÃO"):
                     conn.client.table("contas_cartoes").update({"nome": nn_c, "limite": ll_c}).eq("id", cartao['id']).execute()
                     st.rerun()
                 if st.form_submit_button("🗑️ EXCLUIR CARTÃO"):
                     conn.client.table("contas_cartoes").delete().eq("id", cartao['id']).execute()
                     st.rerun()
-        
         st.write("---")
         with st.form("add_card"):
-            st.write("Adicionar Novo")
-            ac_n = st.text_input("Nome Novo Cartão")
-            ac_l = st.number_input("Limite Inicial", min_value=0.0)
+            ac_n, ac_l = st.text_input("Nome Novo Cartão"), st.number_input("Limite Inicial", min_value=0.0)
             if st.form_submit_button("CADASTRAR NOVO CARTÃO"):
                 conn.client.table("contas_cartoes").insert({"nome": ac_n, "limite": ac_l}).execute()
                 st.rerun()
-
     with t4:
         if st.button("SAIR DA CONTA", use_container_width=True):
             st.session_state.autenticado = False
